@@ -132,22 +132,27 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
     router
         .insert(pattern.clone(), ())
         .map_err(|e| DefinitionError(e.to_string()))?;
-    // matchit has validated the grammar. Inspect only capture names, respecting
-    // its doubled opening-brace escape; this is not another path parser.
+    // matchit validates the grammar. Compare its decoded capture names: both
+    // braces can be doubled, including within a name.
     let mut names = BTreeSet::new();
     let mut chars = pattern.chars().peekable();
+    let mut capture: Option<String> = None;
     while let Some(character) = chars.next() {
-        if character != '{' {
-            continue;
-        }
-        if chars.peek() == Some(&'{') {
+        let escaped = matches!(character, '{' | '}') && chars.peek() == Some(&character);
+        if escaped {
             chars.next();
-            continue;
         }
-        let name: String = chars.by_ref().take_while(|&c| c != '}').collect();
-        let name = name.strip_prefix('*').unwrap_or(&name);
-        if !names.insert(name.to_owned()) {
-            return Err(DefinitionError(format!("duplicate capture name: {name}")));
+        match (capture.as_mut(), character, escaped) {
+            (Some(name), '}', false) => {
+                let name = name.strip_prefix('*').unwrap_or(name).to_owned();
+                if !names.insert(name.clone()) {
+                    return Err(DefinitionError(format!("duplicate capture name: {name}")));
+                }
+                capture = None;
+            }
+            (Some(name), character, _) => name.push(character),
+            (None, '{', false) => capture = Some(String::new()),
+            _ => {}
         }
     }
     Ok(PathMatcher { router })

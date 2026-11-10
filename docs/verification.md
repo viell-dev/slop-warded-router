@@ -52,6 +52,12 @@ Axum bodies, non-default response types in request-returning mode, selected read
 cancellation, and outer concurrency admission. Shared-offer cache checks include differing sets,
 heads, limits, and malformed-input policies. Strict operand-order behavior remains explicit.
 
+Review regressions compare 50 escaped-name/catch-all combinations with matchit's decoded names,
+reject malformed private-use tags while retaining valid private-use/grandfathered controls, and
+exercise supported field-byte/member/parameter bounds across media, language, and encoding. The
+unsupported token-limit setter was removed. Listener checks compare complete Vary tokens so
+`accept-encoding` cannot satisfy an expected `accept` token.
+
 Run `cargo bench --bench selection --locked` for the focused shared-offer cost probe: 1, 16, 64,
 and 128 routes/offers; 257 valid Accept members; approximately 5.8 KiB; five warmups and 50 timed
 selections per size; release profile; last selected target asserted every time. Construct a fresh

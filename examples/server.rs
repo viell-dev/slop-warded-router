@@ -117,12 +117,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 "{method} {path}: {response}"
             );
             let (headers, body) = response.split_once("\r\n\r\n").unwrap();
-            assert!(headers.contains("vary: accept"));
+            let vary_tokens: Vec<_> = headers
+                .lines()
+                .filter_map(|line| line.split_once(':'))
+                .filter(|(name, _)| name.eq_ignore_ascii_case("vary"))
+                .flat_map(|(_, value)| value.split(',').map(str::trim))
+                .collect();
+            assert!(
+                vary_tokens
+                    .iter()
+                    .any(|token| token.eq_ignore_ascii_case("accept")),
+                "{headers}"
+            );
             if method == "HEAD" {
                 assert!(body.is_empty());
             }
             if path == "/orders" && status == 200 {
-                assert!(headers.contains("vary: accept-encoding"));
+                assert!(
+                    vary_tokens
+                        .iter()
+                        .any(|token| token.eq_ignore_ascii_case("accept-encoding")),
+                    "{headers}"
+                );
             }
         }
         Ok::<_, Box<dyn Error>>(())

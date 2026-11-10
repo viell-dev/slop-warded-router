@@ -31,8 +31,14 @@ candidate cannot suppress a later parameter route. `parse-net` supplies grammar 
 quality values, quoting, and identity encoding rules. Alpha.1 counterexamples exposed incorrect
 parameter specificity, loss of parameters following `q`, and lookup priority in its negotiation
 scorer. Alpha.2 retains the grammar parsers and supplies a small media/language selection layer,
-reading all parameters through the existing parameter parser. `language-tags` validates concrete
+reading all parameters through the existing parameter parser. `oxilangtag` validates concrete
 well-formed server tags independently of client negotiation.
+
+The initial alpha.2 candidate used `language-tags`, whose private-use branch accepted malformed
+subtags. Its own README recommends `oxilangtag` for syntax-only validation. The latter requires no
+registry database or runtime dependencies, parses borrowed tags without allocation, and passes the
+retained private-use and grandfathered controls. Dependency defects are tracked in the pinned
+[overview](https://github.com/viell-dev/slop-warded-router/issues/4).
 
 The parser dependency is young; its version is pinned, its types are kept out of Warded's public
 API, and upgrades need the retained protocol counterexamples. Reassess the selection workaround
@@ -84,7 +90,9 @@ win the offer comparison. Routing itself remains ordered.
 Language matching chooses lookup or basic filtering explicitly. Missing fields use field-specific
 protocol semantics; for example, absent and empty Accept-Encoding differ. Repeated values are
 combined as ordered lists. Invalid syntax ordinarily misses; `invalid_is_error` exposes the parser
-diagnostic. Combined field bytes default to 64 KiB and can be configured with Warded's own `Limits`.
+diagnostic. Combined field bytes default to 64 KiB and can be configured with Warded's own `Limits`,
+along with list-member and parameter counts. No per-token length control is exposed: the
+dependency's similarly named setting applies to other grammar paths.
 One immutable head caches complete choices for shared offer sets and limits, including parser
 failures before error/miss mapping. The cache retains each set to prevent address reuse and is
 thread-safe; cloning a head starts a new cache. Independent sets still parse independently. There is

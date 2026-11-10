@@ -388,9 +388,39 @@ fn raw_presence_and_any_value_helpers_have_negative_cases() {
 fn pattern_validation_respects_escaped_braces_and_catch_all_names() {
     assert!(path("/{id}/{*id}").is_err());
     assert!(path("/{{id}}/{id}").is_ok());
-    assert!(path("/{id}}}/{id}").is_err());
+    assert!(path("/{id}}}/{id}").is_ok());
+    assert!(path("/{a{{b}/{a{b}").is_err());
     for invalid in ["", "relative", "/path?query", "/path#fragment"] {
         assert!(path(invalid).is_err(), "{invalid}");
+    }
+}
+
+#[test]
+fn decoded_capture_names_agree_with_matchit_across_brace_and_catch_all_cases() {
+    for first in ["id", "id}}", "a{{b", "a{b", "é"] {
+        for second in ["id", "id}}", "a{{b", "a{b", "é"] {
+            for catch_all in [false, true] {
+                let marker = if catch_all { "*" } else { "" };
+                let pattern = format!("/{{{first}}}/{{{marker}{second}}}");
+                let mut reference = matchit::Router::new();
+                reference.insert(pattern.clone(), ()).unwrap();
+                let found = reference.at("/one/two").unwrap();
+                let names: Vec<_> = found.params.iter().map(|(name, _)| name).collect();
+                assert_eq!(names.len(), 2, "{pattern}");
+                let rule = path(&pattern);
+                assert_eq!(rule.is_err(), names[0] == names[1], "{pattern}: {names:?}");
+                if let Ok(rule) = rule {
+                    let request = Request::builder().uri("/one/two").body(()).unwrap();
+                    let captures = rule
+                        .evaluate(&Head::from_request(&request))
+                        .unwrap()
+                        .unwrap();
+                    for (name, value) in found.params.iter() {
+                        assert_eq!(captures.get(name), Some(value), "{pattern}");
+                    }
+                }
+            }
+        }
     }
 }
 

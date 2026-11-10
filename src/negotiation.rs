@@ -48,12 +48,6 @@ impl Limits {
         self.parser = self.parser.max_params(count);
         self
     }
-    /// Bound parser token length (default 512 bytes).
-    #[must_use]
-    pub const fn max_token_len(mut self, count: u16) -> Self {
-        self.parser = self.parser.max_token_len(count);
-        self
-    }
     /// Bound all combined field bytes, including commas between repeated fields.
     #[must_use]
     pub const fn max_field_bytes(mut self, count: usize) -> Self {
@@ -115,7 +109,7 @@ impl Offers {
                         parse_net::media::parse(value.as_bytes(), &parse_net::Limits::DEFAULT)
                             .is_ok_and(|media| media.param("q").is_none())
                     }
-                    Field::Language(_) => language_tags::LanguageTag::parse(value).is_ok(),
+                    Field::Language(_) => oxilangtag::LanguageTag::parse(value.as_str()).is_ok(),
                     Field::Encoding => value != "*" && parse_net::text::is_token(value.as_bytes()),
                 };
             let key = match field {
@@ -141,7 +135,7 @@ impl Offers {
     }
     /// Well-formed concrete BCP 47 tags, including private-use/grandfathered tags.
     ///
-    /// Syntax is checked by `language-tags`; IANA registration is not required.
+    /// Syntax is checked by `oxilangtag`; IANA registration is not required.
     pub fn languages(
         values: impl IntoIterator<Item = impl Into<String>>,
         mode: LanguageMatching,

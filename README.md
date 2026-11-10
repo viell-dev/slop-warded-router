@@ -89,7 +89,7 @@ Combinators evaluate left to right and errors stop selection. Scope strict check
 `secured().and(exact_path("/admin"))` errors there if context is missing. Explicitly mapping an
 unknown value to a miss also means negating that predicate matches the unknown value.
 
-Negotiation reuses `parse-net` grammar and encoding negotiation, plus `language-tags` for
+Negotiation reuses `parse-net` grammar and encoding negotiation, plus `oxilangtag` for
 well-formed server tags. Warded supplies media precedence and language selection rules.
 `accepts_media_type("application/json")?` tests
 whether one representation is acceptable. To respect preference among several representations,
@@ -125,8 +125,9 @@ appropriate `Vary` or cache-control middleware around successes and fallbacks; h
 responses or set their metadata.
 
 Shared offer sets cache their complete choice within one immutable `Head`, keyed by set identity
-and every configured limit. `negotiation::Limits` controls grammar and combined-field bounds; the
-combined-field default is 64 KiB. Independent sets still perform independent negotiation. `Head` is
+and every configured limit. `negotiation::Limits` controls list members, parameters, and combined
+field bytes; the combined-field default is 64 KiB. Independent sets still perform independent
+negotiation. `Head` is
 cloneable rather than `Copy`; a clone starts a fresh cache.
 
 ## Tower integration and scope
