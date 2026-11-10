@@ -12,8 +12,10 @@ cargo test --no-default-features --features tower --locked
 cargo test --no-default-features --features negotiation --locked
 RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps --locked
 cargo run --example basic --locked
+cargo run --example server --locked -- --check
 cargo package --locked
-cargo run --manifest-path target/package/warded-0.1.0-alpha.1/Cargo.toml --example basic --locked
+cargo run --manifest-path target/package/warded-0.1.0-alpha.2/Cargo.toml --example basic --locked
+cargo run --manifest-path target/package/warded-0.1.0-alpha.2/Cargo.toml --example server --locked -- --check
 ```
 
 On PowerShell, set `$env:RUSTDOCFLAGS = "-D warnings"` before the documentation command. On a native
@@ -31,9 +33,31 @@ is an optional engineering probe,
 independent of the library dependency graph. It records actual upstream behavior and negotiation
 differences; it is not a benchmark or a required compatibility claim.
 
-Synthetic request and Tower checks do not prove listener behavior, TLS trust configuration, browser
-workflows, or protocol negotiation. Human use of a representative candidate remains required before
-a stable release; these engineering checks do not supply that evidence.
+The server example additionally checks a real localhost HTTP/1.1 listener, host error conversion,
+HEAD/405 behavior, known cleartext context, graceful shutdown, and Vary preservation. It does not
+establish TLS/proxy trust, browser workflows, HTTP/2, or HTTP/3. Human use of a representative
+candidate remains required before a stable release.
+
+## Alpha.2 regression and cost probes
+
+Six tests in `review_regressions.rs` were first run against unchanged alpha.1 (`f35a9ff`) in Linux
+Docker, Rust 1.99.1: all failed for the reported media specificity/parameter ordering, lookup
+priority/wildcards, concrete language definitions, and duplicate path captures. The same test bodies
+remain as regression checks, alongside quoted/wildcard media cases, language exclusions, valid and
+invalid tags, and field-byte limits with valid syntax and repeated-field separators.
+
+The expanded suite checks borrowed configuration ownership, actual cross-thread selection,
+constant-cost router cloning by service clone counts, copy-on-write isolation, boxed errors with
+Axum bodies, non-default response types in request-returning mode, selected readiness failures,
+cancellation, and outer concurrency admission. Shared-offer cache checks include differing sets,
+heads, limits, and malformed-input policies. Strict operand-order behavior remains explicit.
+
+Run `cargo bench --bench selection --locked` for the focused shared-offer cost probe: 1, 16, 64,
+and 128 routes/offers; 257 valid Accept members; approximately 5.8 KiB; five warmups and 50 timed
+selections per size; release profile; last selected target asserted every time. Construct a fresh
+head per selection so the measurement includes cache creation. This is a diagnostic measurement,
+not a CI timing threshold or an end-to-end throughput claim. Record hardware, compiler, limits,
+and the exact commit when comparing runs.
 
 ## First alpha evidence
 

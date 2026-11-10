@@ -5,7 +5,8 @@ then executes exactly one service. This makes route applicability independent of
 and body decoding. Custom predicates should be bounded and free of observable effects; the type
 system excludes a body argument but cannot make arbitrary captured state pure.
 
-The matching trait and `Selector` have no thread-safety requirement. The optional `Router` adapter
+The matching trait and local `Selector` have no thread-safety requirement; `SyncSelector` retains
+`Send + Sync` bounds for a shared table without requiring Tower. The optional `Router` adapter
 uses cloneable `Send + Sync` Tower services and matchers. A selector returns a borrowed target and
 owned selection metadata. Tower dispatch stores the selected `Selection` and `Captures` in request
 extensions and preserves the request URI and body.
@@ -26,10 +27,18 @@ exclude bodies from the public predicate interface, support local-only predicate
 capture-free negation. It does not adapt or copy upstream matcher source.
 
 `http` supplies request-head types. `matchit` compiles each path independently: a failed static-path
-candidate cannot suppress a later parameter route. `parse-net` supplies Accept-family parsing and
-negotiation, including strict quality values, media parameters, language schemes, and identity
-encoding rules. Warded configures the parser's refusal policy and maps it to a miss or an explicit
-matching error. It does not build a new Accept parser or inherit a framework's 400/406 policy.
+candidate cannot suppress a later parameter route. `parse-net` supplies grammar parsing, strict
+quality values, quoting, and identity encoding rules. Alpha.1 counterexamples exposed incorrect
+parameter specificity, loss of parameters following `q`, and lookup priority in its negotiation
+scorer. Alpha.2 retains the grammar parsers and supplies a small media/language selection layer,
+reading all parameters through the existing parameter parser. `language-tags` validates concrete
+well-formed server tags independently of client negotiation.
+
+The parser dependency is young; its version is pinned, its types are kept out of Warded's public
+API, and upgrades need the retained protocol counterexamples. Reassess the selection workaround
+when a verified upstream release handles them. This avoids maintaining a separate field grammar or
+forking an entire parser to correct selection rules. Warded maps malformed fields to a miss or an
+explicit matching error and inherits no framework 400/406 policy.
 Tower supplies service boxing and readiness-aware `oneshot` dispatch.
 
 These are ordinary dependencies with their original license terms; see Cargo's resolved graph
@@ -58,10 +67,12 @@ on the same cloned instance it subsequently calls. This avoids coupling unrelate
 readiness. The router's ready result is not admission control: apply an outer Tower concurrency
 limit. Cancellation drops the selected future through normal Tower behavior; no retry is attempted.
 
-The alpha requires a common response body and service error type, and the response body must
-implement `Default` for the implicit empty 404. Convert heterogeneous service responses or errors
-before mounting them. It provides no queues, retry middleware, timeout policy, or automatic body
-buffering.
+The alpha requires a common response body and service error type. `Router` needs a `Default` body
+for its implicit 404, whose body is that default value. `RequestRouter` removes that bound and uses
+`RequestDispatchError` to preserve unmatched requests. Ordinary `DispatchError<E>` contains no body.
+Convert heterogeneous service responses or errors before mounting them. Router clones share an
+immutable table; changing a shared clone copies the table. Dispatch clones only its destination.
+There are no queues, retry middleware, timeout policy, or automatic body buffering.
 
 ## Negotiation and convenience helpers
 
@@ -73,8 +84,19 @@ win the offer comparison. Routing itself remains ordered.
 Language matching chooses lookup or basic filtering explicitly. Missing fields use field-specific
 protocol semantics; for example, absent and empty Accept-Encoding differ. Repeated values are
 combined as ordered lists. Invalid syntax ordinarily misses; `invalid_is_error` exposes the parser
-diagnostic. The alpha bounds combined field bytes to 64 KiB, exposes parser limits, and performs
-bounded negotiation per predicate evaluation. It does not yet cache parsed results across routes.
+diagnostic. Combined field bytes default to 64 KiB and can be configured with Warded's own `Limits`.
+One immutable head caches complete choices for shared offer sets and limits, including parser
+failures before error/miss mapping. The cache retains each set to prevent address reuse and is
+thread-safe; cloning a head starts a new cache. Independent sets still parse independently. There is
+no route index, and raw path interpretation and ordered error propagation remain unchanged.
+
+Media specificity compares wildcard/type specificity and then the number of applicable parameters;
+`q` is a weight wherever it appears. Media, encoding, and basic filtering ties use offer order.
+Lookup processes positive client ranges by descending weight/client order, completing truncation
+before the next range, and uses a wildcard only as a final default. Zero-quality ranges reject an
+equal or less specific lookup match, retaining explicit exclusions without letting a broad wildcard
+erase a more specific positive preference. Registry validation of server language tags is outside
+the constructor's well-formed-syntax contract.
 
 Method helpers match only their named method. `secured` and `unsecure` inspect trusted contextual
 data, not URI scheme or forwarding headers. Unknown context errors unless explicitly made a miss.

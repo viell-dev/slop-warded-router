@@ -5,7 +5,7 @@ use http::{
     Method, Version,
     header::{HeaderName, HeaderValue},
 };
-use std::fmt;
+use std::{collections::BTreeSet, fmt};
 
 /// A malformed static route, header, or negotiation definition.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -42,6 +42,7 @@ pub struct SecurityMatcher {
 }
 impl SecurityMatcher {
     /// Treat missing security context as an ordinary mismatch instead of an error.
+    #[must_use]
     pub fn unknown_as_miss(mut self) -> Self {
         self.unknown_is_miss = true;
         self
@@ -85,9 +86,18 @@ pub fn secured_get_and_head() -> impl Matcher + Clone {
 }
 
 /// Match the URI path exactly, without decoding or slash normalization.
-pub fn exact_path(path: impl Into<String>) -> impl Matcher + Clone {
-    let path = path.into();
-    match_fn(move |head| head.uri().path() == path)
+pub fn exact_path(path: impl Into<String>) -> ExactPath {
+    ExactPath(path.into())
+}
+
+/// An owned, exact raw path condition, including paths read from configuration.
+#[derive(Clone, Debug)]
+pub struct ExactPath(String);
+
+impl Matcher for ExactPath {
+    fn evaluate(&self, head: &Head<'_>) -> MatchResult {
+        Ok((head.uri().path() == self.0).then(Captures::default))
+    }
 }
 
 /// A compiled path pattern, evaluated independently of all other route patterns.
@@ -112,10 +122,34 @@ impl Matcher for PathMatcher {
 /// Each route has its own pattern lookup, so static-path precedence cannot hide
 /// a later overlapping candidate. Captures retain their raw percent encoding.
 pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> {
+    let pattern = pattern.into();
+    if !pattern.starts_with('/') || pattern.contains(['?', '#']) {
+        return Err(DefinitionError(
+            "a path pattern must start with / and contain no query or fragment".into(),
+        ));
+    }
     let mut router = matchit::Router::new();
     router
-        .insert(pattern.into(), ())
+        .insert(pattern.clone(), ())
         .map_err(|e| DefinitionError(e.to_string()))?;
+    // matchit has validated the grammar. Inspect only capture names, respecting
+    // its doubled opening-brace escape; this is not another path parser.
+    let mut names = BTreeSet::new();
+    let mut chars = pattern.chars().peekable();
+    while let Some(character) = chars.next() {
+        if character != '{' {
+            continue;
+        }
+        if chars.peek() == Some(&'{') {
+            chars.next();
+            continue;
+        }
+        let name: String = chars.by_ref().take_while(|&c| c != '}').collect();
+        let name = name.strip_prefix('*').unwrap_or(&name);
+        if !names.insert(name.to_owned()) {
+            return Err(DefinitionError(format!("duplicate capture name: {name}")));
+        }
+    }
     Ok(PathMatcher { router })
 }
 
@@ -131,55 +165,101 @@ fn header_definition(
 /// Require exactly one field value, equal to the requested bytes.
 ///
 /// Header names are case insensitive. Repeated fields miss, even when equal.
-pub fn header_eq(
-    name: &str,
-    value: impl AsRef<[u8]>,
-) -> Result<impl Matcher + Clone, DefinitionError> {
+pub fn header_eq(name: &str, value: impl AsRef<[u8]>) -> Result<HeaderMatcher, DefinitionError> {
     let (name, value) = header_definition(name, value.as_ref())?;
-    Ok(match_fn(move |head| {
-        let mut values = head.headers().get_all(&name).iter();
-        values.next() == Some(&value) && values.next().is_none()
-    }))
+    Ok(HeaderMatcher {
+        name,
+        condition: HeaderCondition::ExactlyOne(value),
+    })
 }
 /// Require at least one exact raw value among possibly repeated fields.
 pub fn header_any_eq(
     name: &str,
     value: impl AsRef<[u8]>,
-) -> Result<impl Matcher + Clone, DefinitionError> {
+) -> Result<HeaderMatcher, DefinitionError> {
     let (name, value) = header_definition(name, value.as_ref())?;
-    Ok(match_fn(move |head| {
-        head.headers().get_all(&name).iter().any(|v| v == value)
-    }))
+    Ok(HeaderMatcher {
+        name,
+        condition: HeaderCondition::Any(value),
+    })
 }
 /// Match field presence without interpreting its values.
-pub fn header_present(name: &str) -> Result<impl Matcher + Clone, DefinitionError> {
+pub fn header_present(name: &str) -> Result<HeaderMatcher, DefinitionError> {
     let name = HeaderName::try_from(name).map_err(|e| DefinitionError(e.to_string()))?;
-    Ok(match_fn(move |head| head.headers().contains_key(&name)))
+    Ok(HeaderMatcher {
+        name,
+        condition: HeaderCondition::Present,
+    })
+}
+
+/// An owned condition on one raw header field.
+#[derive(Clone, Debug)]
+pub struct HeaderMatcher {
+    name: HeaderName,
+    condition: HeaderCondition,
+}
+
+#[derive(Clone, Debug)]
+enum HeaderCondition {
+    ExactlyOne(HeaderValue),
+    Any(HeaderValue),
+    Present,
+}
+
+impl Matcher for HeaderMatcher {
+    fn evaluate(&self, head: &Head<'_>) -> MatchResult {
+        let matched = match &self.condition {
+            HeaderCondition::ExactlyOne(value) => {
+                let mut values = head.headers().get_all(&self.name).iter();
+                values.next() == Some(value) && values.next().is_none()
+            }
+            HeaderCondition::Any(value) => head
+                .headers()
+                .get_all(&self.name)
+                .iter()
+                .any(|v| v == value),
+            HeaderCondition::Present => head.headers().contains_key(&self.name),
+        };
+        Ok(matched.then(Captures::default))
+    }
 }
 
 /// Match any exact raw `key=value` query pair, preserving repetitions and encoding.
 ///
 /// Split only on `&` and the first `=`. `+` stays a plus and `%31` stays encoded.
 /// A bare flag does not equal a pair with an empty value.
-pub fn query_pair(key: impl Into<String>, value: impl Into<String>) -> impl Matcher + Clone {
-    let (key, value) = (key.into(), value.into());
-    match_fn(move |head| {
-        head.uri().query().is_some_and(|query| {
-            query.split('&').any(|pair| {
-                pair.split_once('=')
-                    .is_some_and(|(k, v)| k == key && v == value)
-            })
-        })
-    })
+pub fn query_pair(key: impl Into<String>, value: impl Into<String>) -> QueryMatcher {
+    QueryMatcher {
+        key: key.into(),
+        value: Some(value.into()),
+    }
 }
 /// Match a raw query key, whether a bare flag or a `key=value` pair.
-pub fn query_present(key: impl Into<String>) -> impl Matcher + Clone {
-    let key = key.into();
-    match_fn(move |head| {
-        head.uri().query().is_some_and(|query| {
+pub fn query_present(key: impl Into<String>) -> QueryMatcher {
+    QueryMatcher {
+        key: key.into(),
+        value: None,
+    }
+}
+
+/// An owned raw query-key or key/value condition.
+#[derive(Clone, Debug)]
+pub struct QueryMatcher {
+    key: String,
+    value: Option<String>,
+}
+
+impl Matcher for QueryMatcher {
+    fn evaluate(&self, head: &Head<'_>) -> MatchResult {
+        let matched = head.uri().query().is_some_and(|query| {
             query
                 .split('&')
-                .any(|pair| pair.split_once('=').map_or(pair, |(k, _)| k) == key)
-        })
-    })
+                .any(|pair| match (&self.value, pair.split_once('=')) {
+                    (Some(expected), Some((key, value))) => key == self.key && value == expected,
+                    (Some(_), None) => false,
+                    (None, pair_parts) => pair_parts.map_or(pair, |(key, _)| key) == self.key,
+                })
+        });
+        Ok(matched.then(Captures::default))
+    }
 }

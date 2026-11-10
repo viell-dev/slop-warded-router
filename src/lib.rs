@@ -15,7 +15,7 @@
 //!
 //! The matcher interface does not expose a request body:
 //!
-//! ```compile_fail
+//! ```compile_fail,E0599
 //! use warded::match_fn;
 //! let matcher = match_fn(|head| head.body().is_empty());
 //! ```
@@ -35,9 +35,9 @@ pub use matcher::{
     And, Captures, MatchError, MatchResult, Matcher, Not, Or, match_fn, try_match_fn,
 };
 pub use matchers::DefinitionError;
-pub use selector::{Selected, Selection, Selector};
+pub use selector::{Selected, Selection, Selector, SyncSelector};
 #[cfg(feature = "tower")]
-pub use service::{DispatchError, Router};
+pub use service::{DispatchError, RequestDispatchError, RequestRouter, Router};
 
 #[cfg(all(doctest, feature = "tower", feature = "negotiation"))]
 #[doc = include_str!("../README.md")]

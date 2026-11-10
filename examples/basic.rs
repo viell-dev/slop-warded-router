@@ -16,16 +16,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let orders = secured_get_and_head()
         .and(exact_path("/orders"))
         .and(accepts_media_type("application/json")?);
-    let router = Router::new().route(
-        orders,
-        service_fn(|_: Request<()>| async {
-            let mut response = Response::new(Full::new(Bytes::from_static(b"{\"orders\":[]}")));
+    let router = Router::new()
+        .route(
+            orders,
+            service_fn(|_: Request<()>| async {
+                let mut response = Response::new(Full::new(Bytes::from_static(b"{\"orders\":[]}")));
+                response
+                    .headers_mut()
+                    .insert("content-type", "application/json".parse().unwrap());
+                Ok::<_, Infallible>(response)
+            }),
+        )
+        .map_response(|mut response: Response<Full<Bytes>>| {
             response
                 .headers_mut()
-                .insert("content-type", "application/json".parse().unwrap());
-            Ok::<_, Infallible>(response)
-        }),
-    );
+                .append("vary", "accept".parse().unwrap());
+            response
+        });
     let mut request = Request::builder()
         .uri("/orders")
         .header("accept", "application/json")

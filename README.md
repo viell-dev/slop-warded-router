@@ -4,7 +4,7 @@ A Rust router that selects a service using the complete declared conditions on t
 method, path, headers, query, HTTP version, and trusted HTTPS context. A route need not constrain
 the path. Selection and service execution are separate.
 
-**Status:** `0.1.0-alpha.1` in development. There is no published crate or release yet. APIs and
+**Status:** `0.1.0-alpha.2` in development. There is no published crate or release yet. APIs and
 behavior may change. This repository contains the router; it does not implement an HTTP server or
 TLS stack.
 
@@ -20,8 +20,10 @@ cargo run --example basic --locked
 cargo test --all-features --locked
 ```
 
-The example dispatches synthetic requests without starting a server. To use unreleased source in
-another Cargo package:
+The basic example dispatches synthetic requests. For an ordinary Axum HTTP/1.1 host, run
+`cargo run --example server --locked`, then request `/orders` with `Accept: application/json`.
+`cargo run --example server --locked -- --check` runs its bounded localhost integration check.
+To use unreleased source in another Cargo package:
 
 ```toml
 [dependencies]
@@ -54,14 +56,21 @@ assert_eq!(*selected.target, "french");
 
 `Selector` returns a target without executing it. The first complete match wins; failed headers,
 methods, queries, or security conditions continue selection. A path condition is optional. A
-selector miss is `None`; the optional `Router` Tower adapter instead supplies an empty 404 by
-default. A custom fallback replaces that response. `error_on_miss()` preserves the unread request
-in a `DispatchError::NoMatch` when there is no custom fallback.
+selector miss is `None`; the optional `Router` Tower adapter instead supplies a 404 with the
+response body's default value. A custom fallback replaces that response. `error_on_miss()` returns
+a separate `RequestRouter` adapter whose `RequestDispatchError::NoMatch` retains the unread request
+when there is no custom fallback.
+
+`Selector` supports local custom matchers and stays local to a thread. Use `SyncSelector` for
+thread-safe matchers and targets in shared server state. String-taking raw helpers own their
+configuration, including when constructed from temporary borrowed strings.
 
 Use `path("/orders/{id}")?` or `path("/assets/{*rest}")?` for raw captures. Exact paths and raw
 query helpers do not decode percent escapes, fold case, clean slashes, or redirect. `header_eq`
 requires exactly one equal raw field value; `header_any_eq` explicitly searches repeated values.
-Semantic negotiation is a separate operation.
+Semantic negotiation is a separate operation. If a destination later decodes or normalizes paths,
+its interpretation can differ from a raw match; raw deny-style routes are not an authorization
+boundary.
 
 ## Optional shortcuts and negotiation
 
@@ -75,7 +84,14 @@ router. HTTPS is distinct from authentication.
 `secured().and(get().or(head()))`. These optional compositions add no special registration rule.
 GET alone excludes HEAD. The server still applies HEAD response-body rules.
 
-Negotiation uses the existing `parse-net` package. `accepts_media_type("application/json")?` tests
+Combinators evaluate left to right and errors stop selection. Scope strict checks deliberately:
+`exact_path("/admin").and(secured())` misses `/public` before needing security context, while
+`secured().and(exact_path("/admin"))` errors there if context is missing. Explicitly mapping an
+unknown value to a miss also means negating that predicate matches the unknown value.
+
+Negotiation reuses `parse-net` grammar and encoding negotiation, plus `language-tags` for
+well-formed server tags. Warded supplies media precedence and language selection rules.
+`accepts_media_type("application/json")?` tests
 whether one representation is acceptable. To respect preference among several representations,
 declare the same complete offer set for each alternative:
 
@@ -93,11 +109,25 @@ With `Accept: application/json;q=1, text/html;q=0.5`, preferred-offer predicates
 Independent acceptability predicates can both match, so route declaration order still controls
 them. Only group offers whose other applicability conditions are shared.
 
-Language helpers take an explicit lookup or basic-filtering choice. Encoding helpers account for
-identity and absent/empty field differences. Malformed input ordinarily misses; `invalid_is_error`
-exposes a parser diagnostic. Nothing automatically enables 400, 405, or 406 responses. Apply
+Language helpers take an explicit choice: lookup can select `fr` for `fr-CA`, while basic filtering
+can select `fr-CA` for `fr`. Lookup tries client ranges by descending weight, retaining client order
+for ties, and finishes each range's fallback before the next range. Wildcards provide a default
+after explicit ranges. An equally or more specific zero-quality lookup range excludes a candidate;
+a broader exclusion does not override an explicit positive match. Media, encoding, and basic
+filtering ties use server offer order. Absent fields impose no preference; an offer set chooses its
+first offer. No acceptable offer means a miss, so application defaults need their own final route.
+
+Encoding helpers account for identity and absent/empty field differences. Malformed input ordinarily
+misses; `invalid_is_error` exposes a parser diagnostic. Negating a malformed-as-miss helper matches
+malformed input; choose strict errors when that is inappropriate. Nothing automatically enables
+400, 405, or 406 responses. Apply
 appropriate `Vary` or cache-control middleware around successes and fallbacks; helpers do not encode
 responses or set their metadata.
+
+Shared offer sets cache their complete choice within one immutable `Head`, keyed by set identity
+and every configured limit. `negotiation::Limits` controls grammar and combined-field bounds; the
+combined-field default is 64 KiB. Independent sets still perform independent negotiation. `Head` is
+cloneable rather than `Copy`; a clone starts a fresh cache.
 
 ## Tower integration and scope
 
@@ -108,8 +138,18 @@ Axum applications can retain their own path extraction and state as mounted dest
 
 The adapter waits only for the selected destination's readiness, using the same instance it calls.
 Apply an outer Tower concurrency limit for admission control. Services need common response/error
-types, and the response body needs `Default` for the implicit empty 404. Custom matchers in a
-standalone `Selector` need neither `Send` nor `Sync`.
+types. `Router` requires a `Default` response body for its implicit 404; `Default` does not itself
+guarantee emptiness. `RequestRouter` has no such bound, including with a custom fallback.
+
+Normal `DispatchError<E>` carries no body and can convert to Tower's boxed error when `E` has the
+necessary bounds. Infallible hosts such as Axum still need an explicit error-to-response boundary;
+the [server example](./examples/server.rs) demonstrates it, trusted cleartext context, preserved
+HEAD/405 behavior, and outer `Vary` policy. Router clones share an immutable service table and only
+clone the selected destination for dispatch. Editing a shared clone copies the table.
+
+Nested routers currently share the same `Selection` and `Captures` extension types: an inner match
+replaces them, while an inner fallback retains outer metadata. Preserve parent metadata in a
+separate application extension when needed.
 
 Default features are `tower` and `negotiation`. Disable defaults for standalone matching, or enable
 either feature independently. See the [design and limits](./docs/design.md), the runnable
