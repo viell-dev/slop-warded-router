@@ -1,0 +1,10 @@
+path,language,actix_route_guard,actix_resource_guard,warp,salvo,rama
+/orders,fr,200,200,200,200,200
+/orders,en,405,404,400,404,404
+/orders,absent,405,404,400,404,404
+/orders,fr-FR,405,404,400,404,404
+/other,fr,404,404,404,404,404
+actix resource-guard same-path alternative: 202
+actix resource-guard static/parameter fallthrough: 202
+parse-net: media preference, q=0 specificity, media parameters, malformed q, repeated fields, language schemes, absent/empty encoding and identity: passed
+candidate differences: headers-accept accepts invalid q; negotiator absent encoding offer gzip is not selected
