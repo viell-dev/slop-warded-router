@@ -45,6 +45,11 @@ synthetic tasks and expected outcomes, assign an open human-testing issue, and r
 report and resolution of blockers. Automated checks and agent review do not satisfy that gate.
 Repeat focused human testing before stable distribution after substantial workflow changes.
 
+For the first `0.1.0` release, [issue #8](https://github.com/viell-dev/slop-warded-router/issues/8)
+records delegated scope agreement and stage evidence. Beta needs that agreement and fulfilled
+criteria. RC and stable each require the owner's explicit approval after review of a concrete
+proposal/candidate; review agreement alone does not authorize either transition.
+
 Publishing packages or starting a new distribution channel requires explicit authorization. Keep
 unreleased documentation distinct from installable behavior. Verify exact source, required CI,
 artifacts, licenses, installation, and published downloads before declaring a release complete.

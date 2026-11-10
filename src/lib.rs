@@ -32,7 +32,7 @@ mod service;
 
 pub use head::{Head, TransportSecurity};
 pub use matcher::{
-    And, Captures, MatchError, MatchResult, Matcher, Not, Or, match_fn, try_match_fn,
+    And, Captures, Filter, MatchError, MatchResult, Matcher, Not, Or, match_fn, try_match_fn,
 };
 pub use matchers::DefinitionError;
 pub use selector::{Selected, Selection, Selector, SyncSelector};

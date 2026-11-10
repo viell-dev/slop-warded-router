@@ -77,16 +77,24 @@ rollback contract.
   framework-specific state machines need their own scope decision. They are not additions implied
   by this comparison. Capture-predicate refinement remains separate work in issue #9.
 
-## Known failure retained separately
+## Capacity validation and retained baseline failure
 
 The capacity-validation family also reinforces the known fallible-path-construction issue
 [#7](https://github.com/viell-dev/slop-warded-router/issues/7). A fresh baseline probe confirmed that
 25 ordinary named parameters construct successfully, while 26 panic inside matchit. It failed with
 exit 101. This is a recorded failure, not a passing test or a new defect discovered here.
 
-Keep that issue open for its targeted fix and error-return regression before beta. This test-only
-change does not catch/ignore that panic, add a `should_panic` assertion that blesses it, or claim the
-definition API is fully hardened. No new product defect was found in the twelve adopted cases.
+The original test-only comparison kept that issue open for a targeted fix before beta. It did not
+catch/ignore the panic or add a `should_panic` assertion that blesses it. No new product defect was
+found in the twelve adopted cases.
+
+The subsequent beta-hardening change reproduces that failure on `bfea539`, then moves the existing
+decoded-name scan before insertion and rejects excess ordinary parameters. New public-boundary
+checks cover 25 versus 26/27/100, a terminal catch-all, escaped literal braces and names, Unicode,
+and affixed parameters. Relevant upstream capacity/escaping and rejection-rollback evidence above
+is reused; capture refinement also checks rejected-capture isolation before later alternatives.
+The earlier failed probe remains historical evidence; `tests/path_capacity.rs` requires an error
+rather than a panic from the corrected constructor.
 
 [matchit-match]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/match.rs
 [matchit-insert]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/insert.rs

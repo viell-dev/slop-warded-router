@@ -100,6 +100,34 @@ pub trait Matcher {
     {
         Not(self)
     }
+    /// Refine a successful match using a predicate on its tentative raw captures.
+    ///
+    /// The predicate runs only after this matcher succeeds. Returning false is an
+    /// ordinary miss and discards its captures; operational errors still propagate.
+    /// Only captures produced inside this matcher are visible, so refine a composed
+    /// matcher to inspect several parameters together. No decoding is implicit.
+    ///
+    /// ```
+    /// use warded::{Matcher, matchers::path};
+    /// let user = path("/users/{id}")?.filter(|captures| {
+    ///     captures.get("id").is_some_and(|raw| raw.parse::<u64>().is_ok())
+    /// });
+    /// # Ok::<(), warded::DefinitionError>(())
+    /// ```
+    ///
+    /// A newtype's `FromStr` implementation or a precompiled regex can supply the
+    /// condition. Parsed values are not retained. Missing names need an explicit
+    /// caller policy, such as `is_some_and` above. Predicates should be bounded and
+    /// free of externally visible effects, like other matchers.
+    fn filter<F: Fn(&Captures) -> bool>(self, predicate: F) -> Filter<Self, F>
+    where
+        Self: Sized,
+    {
+        Filter {
+            inner: self,
+            predicate,
+        }
+    }
 }
 
 impl<M: Matcher + ?Sized> Matcher for Box<M> {
@@ -140,6 +168,26 @@ pub struct Not<M>(M);
 impl<M: Matcher> Matcher for Not<M> {
     fn evaluate(&self, head: &Head<'_>) -> MatchResult {
         Ok(self.0.evaluate(head)?.is_none().then(Captures::default))
+    }
+}
+
+/// Capture refinement constructed with [`Matcher::filter`].
+///
+/// `Clone`, `Send`, and `Sync` depend on the wrapped matcher and predicate. Local
+/// selection does not require them; shared selection and dispatch retain their
+/// ordinary bounds.
+#[derive(Clone, Debug)]
+pub struct Filter<M, F> {
+    inner: M,
+    predicate: F,
+}
+
+impl<M: Matcher, F: Fn(&Captures) -> bool> Matcher for Filter<M, F> {
+    fn evaluate(&self, head: &Head<'_>) -> MatchResult {
+        Ok(self
+            .inner
+            .evaluate(head)?
+            .filter(|captures| (self.predicate)(captures)))
     }
 }
 

@@ -44,6 +44,13 @@ affixed path captures, nested rollback, raw namespace boundaries, atypical URI f
 extensions, snapshot isolation, and real HTTP/1.1 QUERY/custom-method body preservation. They run
 through the ordinary feature matrix; the two dispatch/hosting cases require the Tower feature.
 
+`path_capacity.rs` checks fallible construction at the ordinary-parameter boundary, including
+escaped names, literal braces, affixes, and a catch-all beyond 25 ordinary parameters.
+`refinement.rs` checks predicate/newtype alternatives, raw values and overflow, discarded captures,
+ordered overlaps, error/lazy evaluation, conditional trait bounds, cross-thread selection, and
+selected-service failure without retry. These tests run without default features except the
+refinement dispatch check, which needs Tower.
+
 ## Alpha.2 regression and cost probes
 
 Six tests in `review_regressions.rs` were first run against unchanged alpha.1 (`f35a9ff`) in Linux
