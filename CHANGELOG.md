@@ -6,11 +6,12 @@ This is unpublished source. Cargo publication remains disabled.
 
 - Correct media-range parameter specificity and parameters on either side of `q`.
 - Correct weighted language lookup and wildcard defaults; validate concrete server tags with an
-  existing language-tag parser.
+  existing syntax-only language-tag parser, including private-use subtag boundaries.
 - Cache complete choices for shared offer sets within one immutable head and limits.
 - Own borrowed configuration in named raw path/header/query matcher types; add `SyncSelector` while
   preserving local-only custom matchers in `Selector`.
-- Reject duplicate capture names within one compiled path at construction.
+- Reject duplicate decoded capture names within one compiled path at construction, respecting
+  escaped opening and closing braces in names.
 - Share service tables when cloning routers, with copy-on-write when editing a shared clone.
 - Separate ordinary `DispatchError<E>` from request-preserving misses. `error_on_miss()` now returns
   `RequestRouter` with `RequestDispatchError<B, E>` and supports non-default response bodies.

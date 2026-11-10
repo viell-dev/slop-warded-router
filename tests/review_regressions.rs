@@ -206,3 +206,138 @@ fn cached_choices_do_not_cross_heads_sets_limits_or_invalid_input_policies() {
             .is_none()
     );
 }
+
+#[test]
+fn private_use_server_tags_obey_subtag_grammar_in_both_modes() {
+    for mode in [LanguageMatching::Lookup, LanguageMatching::BasicFilter] {
+        for tag in ["x--", "x-private-", "x-123456789", "x-", "en-x--"] {
+            assert!(Offers::languages([tag], mode).is_err(), "{mode:?}: {tag}");
+        }
+        for tag in [
+            "x-a-b",
+            "x-private",
+            "x-12345678",
+            "i-klingon",
+            "sgn-BE-FR",
+            "abcdefgh",
+            "en-US-x-private",
+        ] {
+            assert!(Offers::languages([tag], mode).is_ok(), "{mode:?}: {tag}");
+        }
+    }
+}
+
+#[test]
+fn supported_byte_bounds_cover_all_negotiation_fields_and_parameter_tokens() {
+    for (field, value, rule) in [
+        (
+            "accept",
+            "text/html",
+            accepts_media_type("text/html").unwrap(),
+        ),
+        (
+            "accept-language",
+            "en",
+            accepts_language("en", LanguageMatching::Lookup).unwrap(),
+        ),
+        ("accept-encoding", "gzip", accepts_encoding("gzip").unwrap()),
+        (
+            "accept",
+            "t/h;longname=longvalue",
+            accepts_media_type("t/h;longname=longvalue").unwrap(),
+        ),
+    ] {
+        let request = Request::builder().header(field, value).body(()).unwrap();
+        let head = Head::from_request(&request);
+        for bound in [value.len() - 1, value.len(), value.len() + 1] {
+            let limited = rule
+                .clone()
+                .parser_limits(Limits::DEFAULT.max_field_bytes(bound));
+            let expected = bound >= value.len();
+            assert_eq!(
+                limited.evaluate(&head).unwrap().is_some(),
+                expected,
+                "{field} {bound}"
+            );
+            assert_eq!(
+                limited.invalid_is_error().evaluate(&head).is_ok(),
+                expected,
+                "{field} {bound}"
+            );
+        }
+    }
+}
+
+#[test]
+fn supported_member_and_parameter_bounds_have_field_specific_boundaries() {
+    for (field, value, rule) in [
+        (
+            "accept",
+            "text/html,application/json",
+            accepts_media_type("text/html").unwrap(),
+        ),
+        (
+            "accept-language",
+            "en,fr",
+            accepts_language("en", LanguageMatching::Lookup).unwrap(),
+        ),
+        (
+            "accept-encoding",
+            "gzip,br",
+            accepts_encoding("gzip").unwrap(),
+        ),
+    ] {
+        let request = Request::builder().header(field, value).body(()).unwrap();
+        let head = Head::from_request(&request);
+        for bound in [1, 2, 3] {
+            let limited = rule
+                .clone()
+                .parser_limits(Limits::DEFAULT.max_list_members(bound));
+            assert_eq!(
+                limited.evaluate(&head).unwrap().is_some(),
+                bound >= 2,
+                "{field} {bound}"
+            );
+            assert_eq!(
+                limited.invalid_is_error().evaluate(&head).is_ok(),
+                bound >= 2,
+                "{field} {bound}"
+            );
+        }
+    }
+    for (field, value, rule) in [
+        (
+            "accept",
+            "text/html;q=0.5",
+            accepts_media_type("text/html").unwrap(),
+        ),
+        (
+            "accept-language",
+            "en;q=0.5",
+            accepts_language("en", LanguageMatching::Lookup).unwrap(),
+        ),
+        (
+            "accept-encoding",
+            "gzip;q=0.5",
+            accepts_encoding("gzip").unwrap(),
+        ),
+    ] {
+        let request = Request::builder().header(field, value).body(()).unwrap();
+        let head = Head::from_request(&request);
+        for bound in [0, 1, 2] {
+            let limited = rule
+                .clone()
+                .parser_limits(Limits::DEFAULT.max_params(bound));
+            assert_eq!(
+                limited.evaluate(&head).unwrap().is_some(),
+                bound >= 1,
+                "{field} {bound}"
+            );
+            assert_eq!(
+                limited.invalid_is_error().evaluate(&head).is_ok(),
+                bound >= 1,
+                "{field} {bound}"
+            );
+        }
+    }
+}
