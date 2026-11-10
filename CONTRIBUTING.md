@@ -8,6 +8,14 @@ Use a branch and pull request against `main`. Relevant tests and required CI mus
 a deliberate review of the complete change. Document the Rust version, platforms, commands, and
 any checks that remain unavailable. Do not infer compatibility from matching type names or mocks.
 
+During early releases, use existing routers' test suites as a recurring source of adversarial
+inputs and missing scenarios. For substantial matching/dispatch changes and alpha/beta/RC
+preparation, inspect the relevant upstream areas and record the pinned revisions, applicable
+cases, and their dispositions. Reuse existing evidence for unchanged areas; a full rescan of every
+upstream suite is unnecessary. Preserve Warded's documented semantics rather than importing another
+router's defaults. See the [comparison record](./docs/upstream-tests.md). After the first stable
+release, retire this routine comparison gate and use targeted upstream research when useful.
+
 Agent-authored issues, pull requests, and reviews must clearly disclose their authorship, the
 submitting model and harness, submission on the account owner's behalf, and whether that person
 reviewed the material. Authorization and automated or agent verification do not constitute human

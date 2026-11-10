@@ -31,6 +31,8 @@ verification and honest compatibility claims are essential.
   raw/repeated input, no body reads, committed execution, and service readiness where affected.
 - Unexpected failures need triage against the baseline. Do not weaken checks or hide failures to
   obtain green results. Track actionable defects and deferred limits in issues.
+- Follow CONTRIBUTING's recurring upstream-test review during early releases. Record relevant
+  cases and semantic differences in `docs/upstream-tests.md`; do not mirror entire foreign suites.
 - Keep human-facing Markdown prose near 100 columns. Preserve unrelated content and formatting.
 - Use `.github/labels.json` as the shared label catalog. Every issue and pull request needs one
   `Type:` label and at most one `Status:` label. `Needs:` identifies the person who must act.
