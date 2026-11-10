@@ -16,7 +16,8 @@ agent `Co-Authored-By` or `Signed-off-by` trailers.
 
 Keep one `Type:` label on every issue and pull request. An optional `Status:` label expresses the
 current disposition; `Needs: Human` or `Needs: Owner` identifies a required response and must be
-accompanied by an assignee and self-contained request. See [.github/labels.json](./.github/labels.json)
+accompanied by an assignee and self-contained request. See the
+[label catalog](https://github.com/viell-dev/slop-warded-router/blob/main/.github/labels.json)
 for the catalog.
 
 Contributions to original code are licensed under MIT OR Apache-2.0. Retain applicable notices and

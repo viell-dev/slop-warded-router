@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Lint all targets
+        run: cargo clippy --all-features --all-targets --locked -- -D warnings
+      - name: Test all features and doctests
+        run: cargo test --all-features --locked
+      - name: Test standalone selection
+        run: cargo test --no-default-features --locked
+      - name: Test Tower without negotiation
+        run: cargo test --no-default-features --features tower --locked
+      - name: Test negotiation without Tower
+        run: cargo test --no-default-features --features negotiation --locked
+      - name: Build documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --all-features --no-deps --locked
+      - name: Run the consumer example
+        run: cargo run --example basic --locked
+      - name: Verify packaged source
+        run: cargo package --locked
+      - name: Test the packaged consumer example
+        run: cargo run --manifest-path target/package/warded-0.1.0-alpha.1/Cargo.toml --example basic --locked
+
+  ci:
+    if: always()
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every platform check
+        env:
+          CHECK_RESULT: ${{ needs.checks.result }}
+        run: test "$CHECK_RESULT" = success
