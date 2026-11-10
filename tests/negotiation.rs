@@ -159,7 +159,7 @@ fn encoding_distinguishes_absence_empty_identity_and_specific_exclusions() {
 fn parser_and_combined_byte_limits_fail_without_choosing_an_offer() {
     let rule = accepts_media_type("text/html")
         .unwrap()
-        .parser_limits(parse_net::Limits::DEFAULT.max_list_members(1));
+        .parser_limits(warded::negotiation::Limits::DEFAULT.max_list_members(1));
     assert!(!outcome(&rule, "accept", Some("text/html,application/json")).unwrap());
     let rule = accepts_media_type("text/html").unwrap();
     assert!(!outcome(&rule, "accept", Some(&"a".repeat(65_537))).unwrap());

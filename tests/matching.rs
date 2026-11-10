@@ -301,3 +301,120 @@ fn local_matchers_need_no_send_or_sync_and_short_circuit() {
         Some("local")
     );
 }
+
+#[test]
+fn borrowed_configuration_is_owned_by_registered_matchers() {
+    fn configured(path_value: &str, name: &str, value: &str, key: &str) -> Selector<&'static str> {
+        Selector::new().route(
+            exact_path(path_value)
+                .and(header_eq(name, value).unwrap())
+                .and(header_any_eq(name, value).unwrap())
+                .and(header_present(name).unwrap())
+                .and(query_pair(key, value))
+                .and(query_present(key)),
+            "configured",
+        )
+    }
+    let routes = {
+        let path = String::from("/configured");
+        let name = String::from("x-language");
+        let value = String::from("fr");
+        let key = String::from("language");
+        configured(&path, &name, &value, &key)
+    };
+    let request = Request::builder()
+        .uri("/configured?language=fr")
+        .header("x-language", "fr")
+        .body(())
+        .unwrap();
+    assert_eq!(
+        *routes
+            .select(&Head::from_request(&request))
+            .unwrap()
+            .unwrap()
+            .target,
+        "configured"
+    );
+    // The same named type is returned for borrowed and owned arguments.
+    let _conditions = [exact_path("/a"), exact_path(String::from("/b"))];
+}
+
+#[test]
+fn a_thread_safe_selector_preserves_order_and_can_be_shared_with_another_thread() {
+    let selector = std::sync::Arc::new(
+        warded::SyncSelector::new()
+            .route(get().and(exact_path("/shared")), "first")
+            .route(exact_path("/shared"), "later"),
+    );
+    let copy = selector.clone();
+    let selected = std::thread::spawn(move || {
+        let request = Request::builder().uri("/shared").body(()).unwrap();
+        *copy
+            .select(&Head::from_request(&request))
+            .unwrap()
+            .unwrap()
+            .target
+    })
+    .join()
+    .unwrap();
+    assert_eq!(selected, "first");
+}
+
+#[test]
+fn raw_presence_and_any_value_helpers_have_negative_cases() {
+    let request = Request::builder()
+        .uri("/?other=fr")
+        .header("x-language", "en")
+        .body(())
+        .unwrap();
+    assert!(!matches(
+        &header_any_eq("x-language", "fr").unwrap(),
+        &request
+    ));
+    assert!(!matches(&query_present("language"), &request));
+    let (parts, _) = request.into_parts();
+    let head = Head::from_parts(&parts);
+    assert!(
+        header_present("x-language")
+            .unwrap()
+            .evaluate(&head)
+            .unwrap()
+            .is_some()
+    );
+    assert!(query_pair("other", "fr").evaluate(&head).unwrap().is_some());
+}
+
+#[test]
+fn pattern_validation_respects_escaped_braces_and_catch_all_names() {
+    assert!(path("/{id}/{*id}").is_err());
+    assert!(path("/{{id}}/{id}").is_ok());
+    assert!(path("/{id}}}/{id}").is_err());
+    for invalid in ["", "relative", "/path?query", "/path#fragment"] {
+        assert!(path(invalid).is_err(), "{invalid}");
+    }
+}
+
+#[test]
+fn strict_context_errors_follow_documented_short_circuit_order() {
+    let request = Request::builder().uri("/public").body(()).unwrap();
+    let head = Head::from_request(&request);
+    assert!(matches!(
+        secured().and(exact_path("/admin")).evaluate(&head),
+        Err(MatchError::MissingSecurityContext)
+    ));
+    assert!(
+        exact_path("/admin")
+            .and(secured())
+            .evaluate(&head)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        secured()
+            .unknown_as_miss()
+            .not()
+            .evaluate(&head)
+            .unwrap()
+            .is_some()
+    );
+}

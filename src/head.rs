@@ -16,13 +16,18 @@ pub enum TransportSecurity {
 }
 
 /// An immutable request-head view with no body or arbitrary extension access.
-#[derive(Clone, Copy, Debug)]
+///
+/// With negotiation enabled it memoizes choices within this view. Cloning the
+/// head preserves its inputs and starts a fresh cache; it is not `Copy`.
+#[derive(Clone, Debug)]
 pub struct Head<'a> {
     method: &'a Method,
     uri: &'a Uri,
     version: Version,
     headers: &'a HeaderMap,
     security: TransportSecurity,
+    #[cfg(feature = "negotiation")]
+    pub(crate) negotiation: crate::negotiation::Cache,
 }
 
 impl<'a> Head<'a> {
@@ -34,6 +39,8 @@ impl<'a> Head<'a> {
             version: request.version(),
             headers: request.headers(),
             security: request.extensions().get().copied().unwrap_or_default(),
+            #[cfg(feature = "negotiation")]
+            negotiation: crate::negotiation::Cache::default(),
         }
     }
 
@@ -45,6 +52,8 @@ impl<'a> Head<'a> {
             version: parts.version,
             headers: &parts.headers,
             security: parts.extensions.get().copied().unwrap_or_default(),
+            #[cfg(feature = "negotiation")]
+            negotiation: crate::negotiation::Cache::default(),
         }
     }
 

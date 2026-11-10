@@ -17,7 +17,10 @@ use std::{
     task::{Context, Poll, Waker},
 };
 use tower::{Service, ServiceExt, service_fn};
-use warded::{Captures, DispatchError, Matcher, Router, Selection, TransportSecurity, matchers::*};
+use warded::{
+    Captures, DispatchError, RequestDispatchError, Router, Selection, TransportSecurity,
+    matchers::*,
+};
 
 type Reply = Full<Bytes>;
 fn response(status: StatusCode) -> Response<Reply> {
@@ -62,7 +65,7 @@ async fn misses_use_404_or_consumer_fallback_and_explicit_error_preserves_reques
         )
         .await
     {
-        Err(DispatchError::NoMatch(request)) => {
+        Err(RequestDispatchError::NoMatch(request)) => {
             assert_eq!(request.uri(), "/miss");
             assert_eq!(request.into_body(), "unread");
         }
@@ -239,7 +242,7 @@ fn unrelated_pending_destination_does_not_block_and_readiness_instance_is_preser
 }
 
 #[tokio::test]
-async fn mounted_axum_keeps_its_state_extractors_uri_extensions_and_policy() {
+async fn mounted_axum_keeps_state_path_extensions_and_its_head_and_method_policy() {
     #[derive(Clone)]
     struct StateValue(&'static str);
     #[derive(Clone)]
@@ -256,7 +259,7 @@ async fn mounted_axum_keeps_its_state_extractors_uri_extensions_and_policy() {
             ),
         )
         .with_state(StateValue("state"));
-    let router = Router::new().route(get().and(header_eq("x-app", "yes").unwrap()), app);
+    let router = Router::new().route(header_eq("x-app", "yes").unwrap(), app);
     let mut request = Request::builder()
         .uri("/api/42")
         .header("x-app", "yes")
@@ -264,10 +267,209 @@ async fn mounted_axum_keeps_its_state_extractors_uri_extensions_and_policy() {
         .unwrap();
     request.extensions_mut().insert(Marker("extension"));
     request.extensions_mut().insert(TransportSecurity::Https);
-    let response = router.oneshot(request).await.unwrap();
+    let response = router.clone().oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
         response.into_body().collect().await.unwrap().to_bytes(),
         "state:42:extension"
     );
+    for (method, status) in [
+        ("HEAD", StatusCode::OK),
+        ("POST", StatusCode::METHOD_NOT_ALLOWED),
+    ] {
+        let mut request = Request::builder()
+            .method(method)
+            .uri("/api/42")
+            .header("x-app", "yes")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        request.extensions_mut().insert(Marker("extension"));
+        let response = router.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), status);
+        if method == "HEAD" {
+            assert!(
+                response
+                    .into_body()
+                    .collect()
+                    .await
+                    .unwrap()
+                    .to_bytes()
+                    .is_empty()
+            );
+        } else {
+            assert_eq!(response.headers()["allow"], "GET,HEAD");
+        }
+    }
+}
+
+struct CloneCounter(Arc<AtomicUsize>);
+impl Clone for CloneCounter {
+    fn clone(&self) -> Self {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Self(self.0.clone())
+    }
+}
+impl Service<Request<()>> for CloneCounter {
+    type Response = Response<Reply>;
+    type Error = Infallible;
+    type Future = Ready<Result<Self::Response, Self::Error>>;
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Infallible>> {
+        Poll::Ready(Ok(()))
+    }
+    fn call(&mut self, _: Request<()>) -> Self::Future {
+        ready(Ok(response(StatusCode::OK)))
+    }
+}
+
+#[tokio::test]
+async fn cloning_a_router_shares_the_table_and_dispatch_clones_only_the_selected_service() {
+    let count = Arc::new(AtomicUsize::new(0));
+    let mut router = Router::new();
+    for i in 0..100 {
+        router = router.route(exact_path(format!("/{i}")), CloneCounter(count.clone()));
+    }
+    let copy = router.clone();
+    assert_eq!(count.load(Ordering::SeqCst), 0);
+    let response = copy
+        .oneshot(Request::builder().uri("/99").body(()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(count.load(Ordering::SeqCst), 1);
+    let modified = router
+        .clone()
+        .route(exact_path("/new"), CloneCounter(count.clone()));
+    assert!(
+        modified
+            .select(&warded::Head::from_request(
+                &Request::builder().uri("/new").body(()).unwrap()
+            ))
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        router
+            .select(&warded::Head::from_request(
+                &Request::builder().uri("/new").body(()).unwrap()
+            ))
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn default_dispatch_error_boxes_with_axum_bodies_and_works_under_timeout() {
+    fn assert_box<E: Into<tower::BoxError>>() {}
+    assert_box::<DispatchError<Infallible>>();
+    let router = Router::<axum::body::Body, axum::body::Body, Infallible>::new();
+    let service = tower::timeout::Timeout::new(router, std::time::Duration::from_secs(1));
+    assert_eq!(
+        service
+            .oneshot(Request::new(axum::body::Body::empty()))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn request_returning_mode_and_its_fallback_accept_non_default_responses() {
+    struct NonDefault;
+    let router = Router::<(), NonDefault, Infallible>::new().error_on_miss();
+    assert!(matches!(
+        router.clone().oneshot(Request::new(())).await,
+        Err(RequestDispatchError::NoMatch(_))
+    ));
+    let service = router.fallback(service_fn(|_: Request<()>| async {
+        Ok::<_, Infallible>(Response::new(NonDefault))
+    }));
+    assert_eq!(
+        service.oneshot(Request::new(())).await.unwrap().status(),
+        StatusCode::OK
+    );
+}
+
+struct ReadinessError;
+impl Clone for ReadinessError {
+    fn clone(&self) -> Self {
+        Self
+    }
+}
+impl Service<Request<()>> for ReadinessError {
+    type Response = Response<Reply>;
+    type Error = std::io::Error;
+    type Future = Ready<Result<Self::Response, Self::Error>>;
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Err(std::io::Error::other("not ready")))
+    }
+    fn call(&mut self, _: Request<()>) -> Self::Future {
+        panic!("readiness failed")
+    }
+}
+
+#[tokio::test]
+async fn a_selected_readiness_error_never_calls_the_fallback() {
+    let router = Router::new()
+        .route(get(), ReadinessError)
+        .fallback(service_fn(|_: Request<()>| async {
+            panic!("a selected route must not retry fallback");
+            #[expect(
+                unreachable_code,
+                reason = "provide the service's response/error type after the assertion"
+            )]
+            Ok::<_, std::io::Error>(response(StatusCode::OK))
+        }));
+    assert!(matches!(
+        router.oneshot(Request::new(())).await,
+        Err(DispatchError::Service(_))
+    ));
+}
+
+struct Dropped(Arc<AtomicUsize>);
+impl Drop for Dropped {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+#[test]
+fn cancellation_releases_outer_admission_without_retrying_a_destination() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let drops = Arc::new(AtomicUsize::new(0));
+    let entered = calls.clone();
+    let dropped = drops.clone();
+    let router = Router::new()
+        .route(
+            get(),
+            service_fn(move |_: Request<()>| {
+                entered.fetch_add(1, Ordering::SeqCst);
+                let guard = Dropped(dropped.clone());
+                async move {
+                    let _guard = guard;
+                    std::future::pending::<Result<Response<Reply>, Infallible>>().await
+                }
+            }),
+        )
+        .fallback(service_fn(|_: Request<()>| async {
+            panic!("no retry after cancellation");
+            #[expect(
+                unreachable_code,
+                reason = "provide the service type after the assertion"
+            )]
+            Ok::<_, Infallible>(response(StatusCode::OK))
+        }));
+    let limited = tower::limit::ConcurrencyLimit::new(router, 1);
+    let mut first = Box::pin(limited.clone().oneshot(Request::new(())));
+    let mut second = Box::pin(limited.oneshot(Request::new(())));
+    let mut context = Context::from_waker(Waker::noop());
+    assert!(first.as_mut().poll(&mut context).is_pending());
+    assert!(second.as_mut().poll(&mut context).is_pending());
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    drop(first);
+    assert_eq!(drops.load(Ordering::SeqCst), 1);
+    assert!(second.as_mut().poll(&mut context).is_pending());
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    drop(second);
+    assert_eq!(drops.load(Ordering::SeqCst), 2);
 }
