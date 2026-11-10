@@ -16,6 +16,8 @@ leptos_axum = { version = "0.8.0", optional = true }
 leptos_meta = { version = "0.8.0" }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 wasm-bindgen = { version = "0.2.106", optional = true }
+tower = { version = "0.5", features = ["make", "util"], optional = true }
+warded = { git = "https://github.com/viell-dev/slop-warded-router", rev = "0819b312f2358b4808baca6364d3c034d8f21dcd", default-features = false, features = ["tower"], optional = true }
 
 [features]
 hydrate = [
@@ -27,6 +29,8 @@ ssr = [
     "dep:axum",
     "dep:tokio",
     "dep:leptos_axum",
+    "dep:tower",
+    "dep:warded",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
