@@ -62,6 +62,20 @@ explicit evaluation error. Captures are raw owned strings and do not automatical
 private path extractor state. Static path syntax errors fail construction; name collisions between
 composed matchers are diagnosed during evaluation.
 
+`Matcher::filter` refines a successful match through a read-only predicate on its tentative
+captures. Rejection is an ordinary miss, accepted captures stay raw, and errors from the wrapped
+matcher propagate without invoking the predicate. It can validate several captures after a
+composition without introducing typed capture storage or another path grammar. Conditional
+`Clone`/thread-safety bounds follow the wrapped matcher and callback; local-only and non-cloneable
+callbacks remain usable with `Selector`. The predicate/newtype/regex comparison and measurements
+are retained in the independent `experiment-path-constraints` branch and issue #9.
+
+Construction preflights decoded names and ordinary-parameter capacity before calling matchit.
+Version 0.9.2 panics while normalizing the 26th ordinary parameter; Warded instead returns a
+definition error. A terminal catch-all is not normalized and does not count toward the 25-parameter
+limit. matchit still validates the full pattern grammar. Escaped braces and affixed parameters
+retain their existing meaning; remove or revise this guard only after a tested upstream change.
+
 Custom matcher and missing-context errors stop selection. A selected service's error, 404, or
 pending state never retries another candidate. A configured consumer fallback supersedes ordinary
 404 and error-on-miss; explicit no-match errors retain the unread request.

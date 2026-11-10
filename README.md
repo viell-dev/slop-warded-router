@@ -72,6 +72,31 @@ Semantic negotiation is a separate operation. If a destination later decodes or 
 its interpretation can differ from a raw match; raw deny-style routes are not an authorization
 boundary.
 
+Refine a successful pattern with `filter` to select by captured values before committing to a
+handler. A predicate can be a free function, closure, newtype parser, or precompiled regex:
+
+```rust
+use warded::{Matcher, Selector, matchers::path};
+
+let routes = Selector::new()
+    .route(path("/users/{id}")?.filter(|captures| {
+        captures.get("id").is_some_and(|raw| raw.parse::<u64>().is_ok())
+    }), "numeric user")
+    .route(path("/users/{username}")?.filter(|captures| {
+        captures.get("username").is_some_and(|raw| {
+            !raw.is_empty() && raw.bytes().all(|byte| byte.is_ascii_alphabetic())
+        })
+    }), "named user");
+# Ok::<(), warded::DefinitionError>(())
+```
+
+These are example domain policies; Warded does not assign priority to a type or numeric value.
+False discards that candidate's captures and continues normal ordered selection. True keeps the
+raw strings; parsed values are not stored. The predicate only sees captures from the matcher it
+wraps, so refine a composition to compare several captures. Underlying errors propagate, and
+missing capture names need an explicit caller policy. A compiled pattern supports up to 25 ordinary
+parameters plus an optional terminal catch-all; excess capacity returns `DefinitionError`.
+
 ## Optional shortcuts and negotiation
 
 `get()`, `post()`, and the other method helpers constrain only the method. `secured()` requires

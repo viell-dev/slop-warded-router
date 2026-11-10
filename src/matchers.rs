@@ -121,6 +121,8 @@ impl Matcher for PathMatcher {
 ///
 /// Each route has its own pattern lookup, so static-path precedence cannot hide
 /// a later overlapping candidate. Captures retain their raw percent encoding.
+/// At most 25 ordinary named parameters are supported; a terminal catch-all does
+/// not count toward that limit. Excess capacity returns a definition error.
 pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> {
     let pattern = pattern.into();
     if !pattern.starts_with('/') || pattern.contains(['?', '#']) {
@@ -128,13 +130,13 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
             "a path pattern must start with / and contain no query or fragment".into(),
         ));
     }
-    let mut router = matchit::Router::new();
-    router
-        .insert(pattern.clone(), ())
-        .map_err(|e| DefinitionError(e.to_string()))?;
-    // matchit validates the grammar. Compare its decoded capture names: both
-    // braces can be doubled, including within a name.
+    // Preflight before insertion: matchit 0.9.2's normalize_params panics on its
+    // 26th ordinary parameter. Catch-alls are not normalized. Revisit this guard
+    // when adopting an upstream version that returns an error or lifts the limit.
+    // The scan also compares decoded capture names; either brace can be doubled.
+    // matchit remains responsible for validating the complete pattern grammar.
     let mut names = BTreeSet::new();
+    let mut ordinary_parameters = 0;
     let mut chars = pattern.chars().peekable();
     let mut capture: Option<String> = None;
     while let Some(character) = chars.next() {
@@ -144,6 +146,14 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
         }
         match (capture.as_mut(), character, escaped) {
             (Some(name), '}', false) => {
+                if !name.starts_with('*') {
+                    ordinary_parameters += 1;
+                    if ordinary_parameters > 25 {
+                        return Err(DefinitionError(
+                            "path patterns support at most 25 ordinary named parameters".into(),
+                        ));
+                    }
+                }
                 let name = name.strip_prefix('*').unwrap_or(name).to_owned();
                 if !names.insert(name.clone()) {
                     return Err(DefinitionError(format!("duplicate capture name: {name}")));
@@ -155,6 +165,10 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
             _ => {}
         }
     }
+    let mut router = matchit::Router::new();
+    router
+        .insert(pattern, ())
+        .map_err(|e| DefinitionError(e.to_string()))?;
     Ok(PathMatcher { router })
 }
 
