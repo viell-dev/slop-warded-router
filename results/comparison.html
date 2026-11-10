@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Path constraint measurements</title>
+<style>
+body { margin:0; color:var(--foreground,CanvasText); font-family:var(--font-sans,system-ui); font-size:14px; }
+main { display:grid; gap:20px; }
+h2,h3,p { margin:0; font-size:1em; font-weight:400; }
+h2,h3 { font-weight:500; }
+.intro { display:grid; gap:4px; }
+.note { color:var(--muted-foreground,GrayText); }
+.plot { height:96px; display:grid; gap:6px; margin-top:8px; }
+.row { display:grid; grid-template-columns:minmax(120px,1.3fr) minmax(60px,2fr) 64px; align-items:center; gap:10px; }
+.track { height:16px; background:var(--muted,ButtonFace); position:relative; }
+.bar { height:16px; background:var(--chart-1,Highlight); }
+.newtype .bar { background:var(--chart-2,Highlight); }
+.regex .bar { background:var(--chart-3,Highlight); }
+.value { text-align:right; font-variant-numeric:tabular-nums; }
+.scale { display:flex; justify-content:space-between; margin-left:calc((100% - 84px) * .394 + 10px); margin-right:74px; color:var(--muted-foreground,GrayText); }
+@media(max-width:420px) { .row { grid-template-columns:120px minmax(50px,1fr) 55px; gap:6px; } .scale { margin-left:126px; margin-right:61px; } }
+</style>
+</head>
+<body>
+<main id="path-constraint-measurements">
+  <div class="intro"><h2>Path constraint costs</h2><p class="note">Median of three process medians · lower is shorter</p></div>
+  <section aria-label="Short ID dispatch and handler parsing, nanoseconds per request">
+    <h3>Short ID hit · ns/request</h3>
+    <div class="plot">
+      <div class="row" title="Process medians: 216.0–247.7 ns"><span>Predicate</span><div class="track"><div class="bar" style="width:66.344%"></div></div><span class="value">232.2</span></div>
+      <div class="row newtype" title="Process medians: 217.1–248.6 ns"><span>Newtype predicate</span><div class="track"><div class="bar" style="width:66.693%"></div></div><span class="value">233.4</span></div>
+      <div class="row regex" title="Process medians: 272.7–327.4 ns"><span>Regex + range check</span><div class="track"><div class="bar" style="width:87.781%"></div></div><span class="value">307.2</span></div>
+    </div><div class="scale"><span>0</span><span>350 ns</span></div>
+  </section>
+  <section aria-label="Invalid input miss, nanoseconds per request">
+    <h3>Invalid input miss · ns/request</h3>
+    <div class="plot">
+      <div class="row" title="Process medians: 298.1–301.2 ns"><span>Predicate</span><div class="track"><div class="bar" style="width:85.742%"></div></div><span class="value">300.1</span></div>
+      <div class="row newtype" title="Process medians: 299.7–301.3 ns"><span>Newtype predicate</span><div class="track"><div class="bar" style="width:85.725%"></div></div><span class="value">300.0</span></div>
+      <div class="row regex" title="Process medians: 224.5–225.5 ns"><span>Regex + range check</span><div class="track"><div class="bar" style="width:64.285%"></div></div><span class="value">225.0</span></div>
+    </div><div class="scale"><span>0</span><span>350 ns</span></div>
+  </section>
+  <section aria-label="Three-route table construction and destruction, microseconds per table">
+    <h3>Build and drop three-route table · µs/table</h3>
+    <div class="plot">
+      <div class="row" title="Process medians: 1.239–1.274 µs"><span>Predicate</span><div class="track"><div class="bar" style="width:2.796%"></div></div><span class="value">1.258</span></div>
+      <div class="row newtype" title="Process medians: 1.215–1.237 µs"><span>Newtype predicate</span><div class="track"><div class="bar" style="width:2.730%"></div></div><span class="value">1.229</span></div>
+      <div class="row regex" title="Process medians: 41.188–42.473 µs"><span>Regex + range check</span><div class="track"><div class="bar" style="width:92.458%"></div></div><span class="value">41.606</span></div>
+    </div><div class="scale"><span>0</span><span>45 µs</span></div>
+  </section>
+  <p class="note">Rust 1.99.1 · Linux Docker · 9 samples/process · allocations measured in a separate build. Three-route synthetic fixture; exploratory results, not a performance guarantee.</p>
+</main>
+</body>
+</html>

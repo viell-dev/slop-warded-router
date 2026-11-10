@@ -1,0 +1,16 @@
+[package]
+name = "warded-path-constraint-probe"
+version = "0.0.0-alpha.1"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[features]
+default = ["regex-candidate"]
+regex-candidate = ["dep:regex"]
+count-allocs = []
+
+[dependencies]
+http = "=1.5.0"
+regex = { version = "=1.13.1", optional = true }
+warded = { git = "https://github.com/viell-dev/slop-warded-router", rev = "0819b312f2358b4808baca6364d3c034d8f21dcd", default-features = false }
