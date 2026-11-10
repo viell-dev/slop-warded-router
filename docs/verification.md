@@ -38,6 +38,12 @@ HEAD/405 behavior, known cleartext context, graceful shutdown, and Vary preserva
 establish TLS/proxy trust, browser workflows, HTTP/2, or HTTP/3. Human use of a representative
 candidate remains required before a stable release.
 
+The [upstream-test comparison](./upstream-tests.md) records recurring early-release research and
+the provenance and disposition of additional cases in `upstream_cases.rs`. These cover empty and
+affixed path captures, nested rollback, raw namespace boundaries, atypical URI forms, method
+extensions, snapshot isolation, and real HTTP/1.1 QUERY/custom-method body preservation. They run
+through the ordinary feature matrix; the two dispatch/hosting cases require the Tower feature.
+
 ## Alpha.2 regression and cost probes
 
 Six tests in `review_regressions.rs` were first run against unchanged alpha.1 (`f35a9ff`) in Linux
