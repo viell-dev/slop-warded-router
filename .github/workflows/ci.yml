@@ -26,32 +26,9 @@ jobs:
           persist-credentials: false
       - name: Install pinned Rust
         run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-      - name: Lint all targets
-        run: cargo clippy --all-features --all-targets --locked -- -D warnings
-      - name: Test all features and doctests
-        run: cargo test --all-features --locked
-      - name: Test standalone selection
-        run: cargo test --no-default-features --locked
-      - name: Test Tower without negotiation
-        run: cargo test --no-default-features --features tower --locked
-      - name: Test negotiation without Tower
-        run: cargo test --no-default-features --features negotiation --locked
-      - name: Build documentation
-        env:
-          RUSTDOCFLAGS: -D warnings
-        run: cargo doc --all-features --no-deps --locked
-      - name: Run the consumer example
-        run: cargo run --example basic --locked
-      - name: Check HTTP/1.1 hosting
-        run: cargo run --example server --locked -- --check
-      - name: Verify packaged source
-        run: cargo package --locked
-      - name: Test the packaged consumer example
-        run: cargo run --manifest-path target/package/warded-0.1.0-alpha.3/Cargo.toml --example basic --locked
-      - name: Check packaged HTTP/1.1 hosting
-        run: cargo run --manifest-path target/package/warded-0.1.0-alpha.3/Cargo.toml --example server --locked -- --check
+      - name: Run the repository verification entry point
+        shell: bash
+        run: bash scripts/check.sh
 
   ci:
     if: always()
