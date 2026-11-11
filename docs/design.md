@@ -73,7 +73,9 @@ are retained in the independent `experiment-path-constraints` branch and issue #
 Construction preflights decoded names and ordinary-parameter capacity before calling matchit.
 Version 0.9.2 panics while normalizing the 26th ordinary parameter; Warded instead returns a
 definition error. A terminal catch-all is not normalized and does not count toward the 25-parameter
-limit. matchit still validates the full pattern grammar. Escaped braces and affixed parameters
+limit. Unmatched closing braces are rejected before dependency normalization: matchit can lose an
+escaped opener's marker at a parameter splice boundary, exposing an extra parameter from an invalid
+suffix. matchit still validates the full pattern grammar. Escaped braces and affixed parameters
 retain their existing meaning; remove or revise this guard only after a tested upstream change.
 
 Custom matcher and missing-context errors stop selection. A selected service's error, 404, or

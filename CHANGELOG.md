@@ -1,5 +1,18 @@
 # Changes
 
+## 0.1.0-alpha.3 source candidate
+
+This is unpublished source. Cargo publication remains disabled; beta scope assessment is pending.
+
+- Add `Matcher::filter` for predicates over tentative raw captures, including optional newtype
+  parsing, with ordinary miss/error semantics and no mandatory `Clone` or thread-safety bounds.
+- Return a definition error above 25 ordinary path parameters; retain a terminal catch-all beyond
+  that bound. Reject unmatched closing braces before dependency normalization can expose an extra
+  parameter at an escaped-suffix boundary.
+- Add upstream-inspired regression coverage, including actual HTTP/1.1 QUERY/extension-method
+  body preservation, and recurring targeted comparison during early releases.
+- Declare the tested Rust minimum as 1.99.1, matching the required verification toolchain.
+
 ## 0.1.0-alpha.2 source candidate
 
 This is unpublished source. Cargo publication remains disabled.

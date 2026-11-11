@@ -15,6 +15,13 @@ fn capacity_returns_an_error_instead_of_panicking() {
 }
 
 #[test]
+fn escaped_suffix_does_not_bypass_capacity_guard() {
+    let mut pattern = (0..25).map(|n| format!("/{{p{n}}}")).collect::<String>();
+    pattern.push_str("{{extra}");
+    assert!(warded::matchers::path(pattern).is_err());
+}
+
+#[test]
 fn maximum_ordinary_parameters_and_a_tail_still_match() {
     let request_path = "/value".repeat(25);
     for (suffix, requested, tail) in [("", "", None), ("/{*tail}", "/a/b", Some("a/b"))] {
