@@ -49,9 +49,9 @@ jobs:
       - name: Verify packaged source
         run: cargo package --locked
       - name: Test the packaged consumer example
-        run: cargo run --manifest-path target/package/warded-0.1.0-alpha.2/Cargo.toml --example basic --locked
+        run: cargo run --manifest-path target/package/warded-0.1.0-alpha.3/Cargo.toml --example basic --locked
       - name: Check packaged HTTP/1.1 hosting
-        run: cargo run --manifest-path target/package/warded-0.1.0-alpha.2/Cargo.toml --example server --locked -- --check
+        run: cargo run --manifest-path target/package/warded-0.1.0-alpha.3/Cargo.toml --example server --locked -- --check
 
   ci:
     if: always()

@@ -4,7 +4,7 @@ A Rust router that selects a service using the complete declared conditions on t
 method, path, headers, query, HTTP version, and trusted HTTPS context. A route need not constrain
 the path. Selection and service execution are separate.
 
-**Status:** `0.1.0-alpha.2` in development. There is no published crate or release yet. APIs and
+**Status:** `0.1.0-alpha.3` in development. There is no published crate or release yet. APIs and
 behavior may change. This repository contains the router; it does not implement an HTTP server or
 TLS stack.
 
@@ -13,7 +13,7 @@ Agents write and maintain Warded. No person reviews the code. See
 
 ## Try the source
 
-Use Rust 1.99.1, clone this repository, and run:
+The declared and tested minimum Rust version is 1.99.1. Clone this repository and run:
 
 ```sh
 cargo run --example basic --locked

@@ -96,6 +96,13 @@ is reused; capture refinement also checks rejected-capture isolation before late
 The earlier failed probe remains historical evidence; `tests/path_capacity.rs` requires an error
 rather than a panic from the corrected constructor.
 
+Independent review identified `{{extra}` immediately after the 25th ordinary parameter as another
+capacity bypass. The exact probe panics on both `bfea539` and the initial guard head `6496fad`:
+dependency normalization can lose the escaped opener's marker at the prior parameter's end.
+Rejecting unmatched closing braces before insertion contains that malformed definition. The
+permanent regression retains the input unchanged alongside successful capacity/escaping controls.
+The finding and dependency disposition are tracked in issue #7 and the overview #4.
+
 [matchit-match]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/match.rs
 [matchit-insert]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/insert.rs
 [axum-fallback]: https://github.com/tokio-rs/axum/blob/47399621c4017601ea493cd63c3af581f4fb33e3/axum/src/routing/tests/fallback.rs

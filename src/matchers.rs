@@ -133,6 +133,8 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
     // Preflight before insertion: matchit 0.9.2's normalize_params panics on its
     // 26th ordinary parameter. Catch-alls are not normalized. Revisit this guard
     // when adopting an upstream version that returns an error or lifts the limit.
+    // Reject unmatched closers too: matchit's splice can lose an escaped opener
+    // at a normalized parameter's end boundary and expose another parameter.
     // The scan also compares decoded capture names; either brace can be doubled.
     // matchit remains responsible for validating the complete pattern grammar.
     let mut names = BTreeSet::new();
@@ -162,6 +164,11 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
             }
             (Some(name), character, _) => name.push(character),
             (None, '{', false) => capture = Some(String::new()),
+            (None, '}', false) => {
+                return Err(DefinitionError(
+                    "unmatched closing brace in path pattern".into(),
+                ));
+            }
             _ => {}
         }
     }
