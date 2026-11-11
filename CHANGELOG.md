@@ -1,5 +1,20 @@
 # Changes
 
+## 0.1.0-beta.1 source candidate
+
+This is an unpublished source candidate for the agreed router-only first release. Publication
+remains disabled; promotion waits for independent review and exact-revision gate evidence.
+
+- Maintain a representative Leptos application using Warded as its outer HTTP router, compared with
+  an Axum baseline across three browser engines. Cover dynamic captures, ID/username predicates,
+  header/query alternatives, real forms/server functions, SSR streaming, hydration and failures.
+- Assert complete browser reports, a broken-predicate negative control and success/failure cleanup.
+- Add a deterministic seeded input corpus to ordinary required CI, covering raw matching, compiled
+  paths, path-definition boundaries, negotiation limits, miss/error policies and cache consistency.
+- Record a consumer-informed API freeze assessment, reproducible selection/negotiation measurements,
+  dependency dispositions, and explicit host/method/raw-query/transport limits.
+- Document the matchit escaped-suffix limitation and its verified one-character-name workaround.
+
 ## 0.1.0-alpha.3 source candidate
 
 This is unpublished source. Cargo publication remains disabled. The [first-release goal](https://github.com/viell-dev/slop-warded-router/issues/8)

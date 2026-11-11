@@ -49,6 +49,18 @@ ordered overlaps, error/lazy evaluation, conditional trait bounds, cross-thread 
 selected-service failure without retry. These tests run without default features except the
 refinement dispatch check, which needs Tower.
 
+`input_corpus.rs` adds deterministic generated raw header/query/path inputs and path-definition
+boundaries, plus Accept-family malformed/policy/cache/limit checks. Seed and failing input are
+reported; panics fail the test. Its four test groups run in required CI (two without negotiation).
+The verified one-character-name escaped-suffix control covers the documented dependency workaround.
+
+Run `bash integration/leptos/check.sh` in the provisioned Linux Docker image for the representative
+application; its [README](../integration/leptos/README.md) gives exact container commands, triggers,
+counts, negative control, cleanup checks and evidence limits. It uses the enclosing source, compares
+21 Axum cases with 27 Warded cases across Chromium/Firefox/WebKit, and requires three deliberately
+broken-predicate failures. It is a manual beta gate; hosted affected-change/release execution is
+required before RC. The browser check does not replace ordinary required library CI or human use.
+
 ## Alpha.2 regression and cost probes
 
 Six tests in `review_regressions.rs` were first run against unchanged alpha.1 (`f35a9ff`) in Linux
@@ -69,12 +81,14 @@ exercise supported field-byte/member/parameter bounds across media, language, an
 unsupported token-limit setter was removed. Listener checks compare complete Vary tokens so
 `accept-encoding` cannot satisfy an expected `accept` token.
 
-Run `cargo bench --bench selection --locked` for the focused shared-offer cost probe: 1, 16, 64,
-and 128 routes/offers; 257 valid Accept members; approximately 5.8 KiB; five warmups and 50 timed
-selections per size; release profile; last selected target asserted every time. Construct a fresh
-head per selection so the measurement includes cache creation. This is a diagnostic measurement,
-not a CI timing threshold or an end-to-end throughput claim. Record hardware, compiler, limits,
-and the exact commit when comparing runs.
+Run `cargo bench --bench selection --locked` for the current focused cost probe: compiled path
+tables with 16/128/1024 routes, independent versus shared negotiation with 16/128 offers, small and
+near-64-KiB fields, and early/late/miss shapes. A fresh head includes cache creation in each sample;
+every sample asserts the target or miss and path captures. The
+[assessment](./beta-assessment.md#selection-cost-decision) records inputs, counts, environment,
+measurements, limits and the indexing decision. This is not a CI timing threshold or throughput
+promise. The earlier alpha.2 shared-offer probe used a different smaller input; retain its historical
+evidence rather than presenting these different shapes as an implementation-only comparison.
 
 ## First alpha evidence
 

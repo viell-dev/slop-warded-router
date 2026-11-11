@@ -1,6 +1,6 @@
 [package]
 name = "warded"
-version = "0.1.0-alpha.3"
+version = "0.1.0-beta.1"
 edition = "2024"
 rust-version = "1.99.1"
 license = "MIT OR Apache-2.0"
@@ -10,7 +10,7 @@ readme = "README.md"
 publish = false
 keywords = ["http", "router", "tower", "routing"]
 categories = ["web-programming::http-server"]
-exclude = ["research/", ".github/", "AGENTS.md"]
+exclude = ["research/", "integration/", ".github/", "AGENTS.md"]
 
 [package.metadata.docs.rs]
 all-features = true

@@ -1,2 +1,7 @@
 /target/
 /research/comparison/target/
+/integration/leptos/target/
+/integration/leptos/end2end/node_modules/
+/integration/leptos/end2end/test-results/
+/integration/leptos/end2end/playwright-report/
+/integration/leptos/artifacts/
