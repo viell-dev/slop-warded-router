@@ -3,24 +3,22 @@
 Use Rust 1.99.1 from `rust-toolchain.toml`. CI requires Windows and Linux checks and a successful
 aggregate `ci` result before integration.
 
+From the repository root, run the same entry point as both CI platforms:
+
 ```sh
-cargo fmt --all -- --check
-cargo clippy --all-features --all-targets --locked -- -D warnings
-cargo test --all-features --locked
-cargo test --no-default-features --locked
-cargo test --no-default-features --features tower --locked
-cargo test --no-default-features --features negotiation --locked
-RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps --locked
-cargo run --example basic --locked
-cargo run --example server --locked -- --check
-cargo package --locked
-cargo run --manifest-path target/package/warded-0.1.0-alpha.3/Cargo.toml --example basic --locked
-cargo run --manifest-path target/package/warded-0.1.0-alpha.3/Cargo.toml --example server --locked -- --check
+bash scripts/check.sh
 ```
 
-On PowerShell, set `$env:RUSTDOCFLAGS = "-D warnings"` before the documentation command. On a native
-Windows developer machine, the MSVC C/C++ runtime libraries and Windows SDK must be installed and
-discoverable; a missing `msvcrt.lib` prevents tests from linking before Warded runs.
+The [script](../scripts/check.sh) anchors itself to the checkout root and derives the packaged
+manifest from Cargo's current package identity. It runs formatting, Clippy on all targets,
+the four feature configurations and doctests, documentation with warnings denied, both examples,
+package verification, and both packaged examples. Package output uses `CARGO_TARGET_DIR` when set,
+otherwise `target`; the package step chooses that output explicitly to avoid stale-path fallback.
+
+Use Git Bash for this entry point on Windows. Individual Cargo commands remain usable in
+PowerShell; set `$env:RUSTDOCFLAGS = "-D warnings"` before a documentation check. The MSVC runtime
+libraries and Windows SDK must be installed and discoverable; a missing `msvcrt.lib` prevents tests
+from linking before Warded runs.
 
 The suite checks complete-condition fallthrough, overlap and declaration order, captures discarded
 after failed alternatives and negation, collision errors, raw/repeated/invalid inputs, all required

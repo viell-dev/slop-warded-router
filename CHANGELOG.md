@@ -2,7 +2,8 @@
 
 ## 0.1.0-alpha.3 source candidate
 
-This is unpublished source. Cargo publication remains disabled; beta scope assessment is pending.
+This is unpublished source. Cargo publication remains disabled. The [first-release goal](https://github.com/viell-dev/slop-warded-router/issues/8)
+is agreed; its beta implementation gates remain unfinished.
 
 - Add `Matcher::filter` for predicates over tentative raw captures, including optional newtype
   parsing, with ordinary miss/error semantics and no mandatory `Clone` or thread-safety bounds.
@@ -12,6 +13,8 @@ This is unpublished source. Cargo publication remains disabled; beta scope asses
 - Add upstream-inspired regression coverage, including actual HTTP/1.1 QUERY/extension-method
   body preservation, and recurring targeted comparison during early releases.
 - Declare the tested Rust minimum as 1.99.1, matching the required verification toolchain.
+- Derive packaged-source verification paths from Cargo and run the same entry point in local
+  checks and Windows/Linux CI, avoiding stale example paths after version changes.
 
 ## 0.1.0-alpha.2 source candidate
 
