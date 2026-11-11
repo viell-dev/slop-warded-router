@@ -4,9 +4,10 @@ A Rust router that selects a service using the complete declared conditions on t
 method, path, headers, query, HTTP version, and trusted HTTPS context. A route need not constrain
 the path. Selection and service execution are separate.
 
-**Status:** `0.1.0-alpha.3` in development. There is no published crate or release yet. APIs and
-behavior may change. This repository contains the router; it does not implement an HTTP server or
-TLS stack.
+**Status:** `0.1.0-beta.1` source candidate. There is no published crate or release yet. This
+candidate targets the [agreed first-release goal](https://github.com/viell-dev/slop-warded-router/issues/8);
+beta promotion requires independent review and exact-revision gate evidence. This repository
+contains the router; it does not implement an HTTP server or TLS stack.
 
 Agents write and maintain Warded. No person reviews the code. See
 [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution and verification expectations.
@@ -96,6 +97,9 @@ raw strings; parsed values are not stored. The predicate only sees captures from
 wraps, so refine a composition to compare several captures. Underlying errors propagate, and
 missing capture names need an explicit caller policy. A compiled pattern supports up to 25 ordinary
 parameters plus an optional terminal catch-all; excess capacity returns `DefinitionError`.
+With matchit 0.9.2, an escaped literal immediately after a multi-character parameter can be rejected:
+use a one-character name for that shape, such as `/{a}{{x}}`, which matches `/value{x}` and captures
+`a=value`. The inherited limit is tracked in [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13).
 
 ## Optional shortcuts and negotiation
 
@@ -108,6 +112,13 @@ router. HTTPS is distinct from authentication.
 `secured_post()` is just `secured().and(post())`; `secured_get_and_head()` is
 `secured().and(get().or(head()))`. These optional compositions add no special registration rule.
 GET alone excludes HEAD. The server still applies HEAD response-body rules.
+`method(http::Method::from_bytes(b"QUERY")?)` and other valid extension methods work without special
+registration. Automatic 405/Allow, OPTIONS, implicit HEAD, redirects and path normalization are
+outside the first release; supply explicit routes or surrounding framework policies as needed.
+
+Host conditions use a custom matcher over `Head::uri()` and raw headers. HTTP/1.1's `Host` field and
+HTTP/2's URI authority are not interchangeable: when `:authority` is present, do not substitute the
+`Host` field as the request target. No dedicated host helper or HTTP/2 hosting guarantee is implied.
 
 Combinators evaluate left to right and errors stop selection. Scope strict checks deliberately:
 `exact_path("/admin").and(secured())` misses `/public` before needing security context, while
@@ -154,6 +165,10 @@ and every configured limit. `negotiation::Limits` controls list members, paramet
 field bytes; the combined-field default is 64 KiB. Independent sets still perform independent
 negotiation. `Head` is
 cloneable rather than `Copy`; a clone starts a fresh cache.
+Selection scans routes linearly. Put applicable cheap conditions before negotiation, use shared
+offers only when their applicability is genuinely shared, and set field limits appropriate to the
+application. Near-limit fields across many independent predicates can be expensive; see the
+[measurement and decision](./docs/beta-assessment.md). The first release makes no throughput promise.
 
 ## Tower integration and scope
 
@@ -184,8 +199,16 @@ reference with `cargo doc --all-features --no-deps --open`.
 
 Report defects through [GitHub issues](https://github.com/viell-dev/slop-warded-router/issues), with
 the commit, Rust version, features, synthetic request, expected result, and actual result. This
-alpha does not promise framework-wide compatibility, an HTTP server, authentication, automatic
-protocol response policy, or measured performance.
+candidate does not promise framework-wide compatibility, an HTTP server, authentication, automatic
+protocol response policy, or a performance threshold. The maintained [Leptos application](./integration/leptos/README.md)
+tests one real SSR/hydration/form/streaming workflow over Linux HTTP/1.1 with three browser engines.
+Windows/Linux library execution is separate evidence; HTTP/2, HTTP/3 and real TLS/proxy integration
+remain unverified.
+
+The [release procedure](./docs/release.md) defines beta, RC and stable gates. Stable 0.1.x preserves
+the public API, documented semantics, feature names and Rust minimum 1.99.1; intentional breaking
+changes belong in 0.2.0. RC and stable each require explicit owner approval after review, and stable
+also requires actual human library use. No crate publication or new distribution channel is authorized.
 
 Licensed MIT OR Apache-2.0, at the recipient's option. See
 [LICENSE-MIT](./LICENSE-MIT) and [LICENSE-APACHE](./LICENSE-APACHE).

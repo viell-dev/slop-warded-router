@@ -76,7 +76,10 @@ definition error. A terminal catch-all is not normalized and does not count towa
 limit. Unmatched closing braces are rejected before dependency normalization: matchit can lose an
 escaped opener's marker at a parameter splice boundary, exposing an extra parameter from an invalid
 suffix. matchit still validates the full pattern grammar. Escaped braces and affixed parameters
-retain their existing meaning; remove or revise this guard only after a tested upstream change.
+retain their existing meaning, with an inherited escaped-adjacency limit: `/{id}{{x}}` is rejected
+by matchit 0.9.2, while the verified one-character-name workaround `/{a}{{x}}` matches `/value{x}`.
+See [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13). Remove or revise the
+capacity guard only after a tested upstream change.
 
 Custom matcher and missing-context errors stop selection. A selected service's error, 404, or
 pending state never retries another candidate. A configured consumer fallback supersedes ordinary
@@ -137,5 +140,10 @@ rules remain the HTTP stack's responsibility.
 
 Header-based variants and fallbacks need appropriate `Vary` or cache-control middleware around the
 router. Negotiation helpers do not generate response metadata or encode a selected representation.
-Trusted transport/proxy integration must populate `TransportSecurity` correctly. Real HTTP/1.1,
-HTTP/2, and HTTP/3 server negotiation remains outside this alpha's evidence.
+Trusted transport/proxy integration must populate `TransportSecurity` correctly. Host conditions
+use custom URI/header predicates; HTTP/1.1 `Host` and HTTP/2 `:authority` are distinct protocol inputs,
+and `Host` cannot replace an available authority. No dedicated host helper is part of 0.1.
+Real localhost HTTP/1.1 is exercised by the hosting tests and representative Leptos fixture.
+HTTP/2/3, TLS negotiation and proxy trust remain outside this evidence. See the
+[freeze assessment](./beta-assessment.md) for API and cost decisions and the
+[release procedure](./release.md) for the agreed compatibility/stage policy.

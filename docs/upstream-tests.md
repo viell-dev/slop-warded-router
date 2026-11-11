@@ -103,6 +103,33 @@ Rejecting unmatched closing braces before insertion contains that malformed defi
 permanent regression retains the input unchanged alongside successful capacity/escaping controls.
 The finding and dependency disposition are tracked in issue #7 and the overview #4.
 
+## Beta preparation refresh
+
+On 2026-11-11, re-read Axum's fallback/state/method-not-allowed tests and Actix's rejected-capture,
+raw-encoding, segment-boundary, matching-agreement and capacity cases. The current file contents
+are unchanged from the earlier pinned snapshots: Axum file blob
+`81204077fc5595ea21d5ef41ea4315a469440e08`, latest file commit
+[`ab593bb`](https://github.com/tokio-rs/axum/blob/ab593bbab7e0e3203d8e15e09208f3cd8bd43fb4/axum/src/routing/tests/fallback.rs);
+Actix file blob `0d9cabab29ec3be9eb4776f369249c19cfcebb86`, latest file commit
+[`9fb5964`](https://github.com/actix/actix-web/blob/9fb59640aebc6a7c87bb79ead55b5730a5425ba4/actix-router/src/resource.rs).
+
+The maintained Leptos fixture supplies real framework evidence for fallback, explicit method policy,
+dynamic value rejection and selected failure; its extra rejection route prevents the framework's
+renderer from re-admitting an invalid value. Do not import Axum's automatic method/nesting policy
+or Actix's regex grammar and definition panics. The seeded corpus adds raw reachable inputs and
+matching/definition/cache consistency checks without copying foreign test bodies or datasets.
+
+The pinned `leptos_axum` 0.8.10 source was inspected for public SSR/context, server-function routing,
+and file/error handlers before mounting them. Its route-list mode/methods and browser-navigation
+boundary are asserted by the fixture. The matchit 0.9.2 escaped-marker splice remains unchanged;
+retain the capacity regressions and the successful `/{a}{{x}}` workaround control for #13 rather
+than asserting that rejecting a valid longer-name pattern is intended.
+
+Boolean composition, dispatch readiness/cancellation, QUERY/extensions, malformed language/media
+counterexamples and other raw-path contracts are unchanged by beta preparation. Reuse the earlier
+Warp/Rama/Salvo/matchit comparison and retained failures for those areas. The preparation changes
+tests, consumer evidence and public limits rather than importing another router's API/defaults.
+
 [matchit-match]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/match.rs
 [matchit-insert]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/insert.rs
 [axum-fallback]: https://github.com/tokio-rs/axum/blob/47399621c4017601ea493cd63c3af581f4fb33e3/axum/src/routing/tests/fallback.rs
