@@ -1,0 +1,100 @@
+name: Leptos fixture
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '.cargo/**'
+      - 'rust-toolchain.toml'
+      - 'integration/leptos/**'
+      - '.github/workflows/leptos-fixture.yml'
+  push:
+    branches: [main]
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
+    paths:
+      - 'src/**'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '.cargo/**'
+      - 'rust-toolchain.toml'
+      - 'integration/leptos/**'
+      - '.github/workflows/leptos-fixture.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: leptos-fixture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fixture:
+    name: Linux HTTP and browser fixture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Export exact source and build the fixture image
+        timeout-minutes: 20
+        run: |
+          evidence="$RUNNER_TEMP/warded-fixture-evidence"
+          mkdir "$evidence"
+          git rev-parse HEAD | tee "$evidence/commit.txt"
+          git rev-parse 'HEAD^{tree}' | tee "$evidence/tree.txt"
+          git archive --format=tar --output="$RUNNER_TEMP/warded-fixture-source.tar" HEAD
+          sha256sum "$RUNNER_TEMP/warded-fixture-source.tar" | tee "$evidence/archive-sha256.txt"
+          docker build --tag warded-leptos-test integration/leptos 2>&1 | tee "$evidence/image-build.log"
+          docker image inspect --format '{{.Id}}' warded-leptos-test | tee "$evidence/image-id.txt"
+      - name: Run the complete fixture
+        timeout-minutes: 18
+        run: |
+          evidence="$RUNNER_TEMP/warded-fixture-evidence"
+          revision="commit:$(cat "$evidence/commit.txt")"
+          docker create --cidfile "$RUNNER_TEMP/warded-fixture.cid" \
+            --cpus 4 --memory 6g --pids-limit 1024 --shm-size 1g \
+            --mount "type=bind,source=$RUNNER_TEMP/warded-fixture-source.tar,target=/source.tar,readonly" \
+            --env "WARDED_FIXTURE_REVISION=$revision" warded-leptos-test \
+            bash -euc 'tar -xf /source.tar -C /app
+              cd /app/integration/leptos
+              exec timeout --kill-after=30s 15m bash check.sh'
+          docker start --attach "$(cat "$RUNNER_TEMP/warded-fixture.cid")" 2>&1 | tee "$evidence/fixture.log"
+      - name: Collect reports and remove the container
+        if: always()
+        timeout-minutes: 3
+        run: |
+          cidfile="$RUNNER_TEMP/warded-fixture.cid"
+          if [[ ! -s "$cidfile" ]]; then exit 0; fi
+          container="$(cat "$cidfile")"
+          evidence="$RUNNER_TEMP/warded-fixture-evidence"
+          status=0
+          docker stop --time 10 "$container" >/dev/null || status=1
+          # docker cp without --archive creates runner-owned output.
+          docker cp "$container:/app/integration/leptos/artifacts/." "$evidence/" || status=1
+          docker rm -f "$container"
+          if docker container inspect "$container" >/dev/null 2>&1; then
+            echo "Fixture container survived cleanup" >&2
+            exit 1
+          fi
+          echo "Verified fixture container removal" | tee "$evidence/container-cleanup.txt"
+          exit "$status"
+      - name: Upload fixture evidence
+        if: always()
+        timeout-minutes: 3
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: leptos-fixture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/warded-fixture-evidence
+          if-no-files-found: error
+          retention-days: 14

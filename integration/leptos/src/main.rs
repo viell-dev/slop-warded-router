@@ -99,6 +99,7 @@ mod server {
                         let options = options.clone();
                         move || shell(options.clone())
                     })
+                    .route("/__test/router", axum::routing::get(|| async { "axum" }))
                     .route_service("/__test/release-stream", release)
                     .route_service("/__test/failure", failure)
                     .fallback(leptos_axum::file_and_error_handler(shell))
@@ -122,6 +123,17 @@ mod server {
                     }
                 });
                 let app = warded::Router::new()
+                    .route(
+                        get().and(exact_path("/__test/router")),
+                        service_fn(move |_: Request<Body>| async move {
+                            let identity = if reject_id {
+                                "warded/reject-id"
+                            } else {
+                                "warded"
+                            };
+                            Ok::<_, Infallible>(identity.into_response())
+                        }),
+                    )
                     .route(post().and(exact_path("/__test/release-stream")), release)
                     .route(get().and(exact_path("/__test/failure")), failure)
                     // A response from the selected service must never select this.
@@ -182,7 +194,7 @@ mod server {
                         ),
                         capture_response(render.clone(), "username"),
                     )
-                    // The framework fallback must not re-admit a rejected value.
+                    // Own rejections for this exact path shape.
                     .route(
                         get().or(head()).and(path("/users/{value}").unwrap()),
                         service_fn(|_: Request<Body>| async {
@@ -240,8 +252,11 @@ mod server {
                 Ok::<_, Infallible>(response)
             }
         });
-        println!("fixture router={mode} listening on http://{addr}");
         let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+        println!(
+            "fixture listening on http://{}",
+            listener.local_addr().unwrap()
+        );
         axum::serve(listener, Shared::new(app)).await.unwrap();
     }
 }

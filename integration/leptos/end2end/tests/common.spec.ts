@@ -12,32 +12,6 @@ test("SSR hydrates into an interactive application", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("SSR HTML and static assets are served independently of hydration", async ({ request }) => {
-  const response = await request.get("/");
-  expect(response.status()).toBe(200);
-  expect(response.headers()["content-type"]).toContain("text/html");
-  expect(await response.text()).toContain("Welcome to Leptos!");
-  const css = await request.get("/pkg/warded-leptos-probe.css");
-  expect(css.status()).toBe(200);
-  expect(css.headers()["content-type"]).toContain("text/css");
-  expect(await css.text()).toContain("body");
-  expect((await request.get("/favicon.ico")).status()).toBe(200);
-});
-
-test("rendered 404, HEAD and explicit method policy retain their HTTP behavior", async ({ request }) => {
-  const missing = await request.get("/not-a-route");
-  expect(missing.status()).toBe(404);
-  expect(await missing.text()).toContain("Page not found.");
-  const head = await request.head("/");
-  expect(head.status()).toBe(200);
-  expect((await head.body()).length).toBe(0);
-  const post = await request.post("/");
-  expect(post.status()).toBe(405);
-  expect(post.headers()["allow"].split(",").map((method) => method.trim()).sort()).toEqual([
-    "GET", "HEAD",
-  ]);
-});
-
 test("full dynamic requests and hydrated client navigation have distinct boundaries", async ({ page }) => {
   let documents = 0;
   page.on("request", (request) => {
@@ -54,6 +28,17 @@ test("full dynamic requests and hydrated client navigation have distinct boundar
   expect((await page.reload())?.status()).toBe(200);
   await expect(page.getByTestId("user-value")).toHaveText("alice");
   expect(documents).toBe(2);
+});
+
+test.describe("server-rendered fallback", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("a trailing-slash user path renders through the fallback with 404", async ({ page }) => {
+    const response = await page.goto("/users/-1/");
+    expect(response?.status()).toBe(404);
+    expect(response?.headers()["x-capture"]).toBeUndefined();
+    await expect(page.getByTestId("user-value")).toHaveText("-1");
+  });
 });
 
 test("a real form preserves its body and returns server-function errors", async ({ page }) => {
@@ -73,12 +58,6 @@ test("a real form preserves its body and returns server-function errors", async 
   expect((await failure).status()).toBe(500);
   await expect(page.getByTestId("form-result")).toContainText("synthetic form failure");
   await expect(page.getByTestId("form-result")).not.toContainText("incorrect");
-});
-
-test("a selected failure is returned without reselection", async ({ request }) => {
-  const failure = await request.get("/__test/failure");
-  expect(failure.status()).toBe(500);
-  expect(await failure.text()).toBe("selected failure");
 });
 
 test("SSR initial content is readable before late content is released", async ({ page, request }) => {

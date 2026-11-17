@@ -43,8 +43,16 @@ Independent agent agreement alone does not authorize this transition. Before req
 - Finish beta findings and compatibility constraints; rerun exact-source tests, packaged examples,
   installation/removal and documentation commands. Refresh advisories, resolved licenses and
   dependency mitigations; establish an appropriate private vulnerability-reporting route.
-- Add a maintained hosted fixture workflow with manual, affected-path and release triggers, bounded
-  execution, complete-result checks, retained artifacts and verified cleanup on failure.
+- Require exact-candidate success from the hosted [Leptos fixture](../integration/leptos/README.md).
+  It runs on pull requests to `main` and pushes to `main` for changes to library source, Cargo
+  manifests/lockfiles/configuration, the Rust toolchain file, the fixture or its workflow. Unprefixed
+  version tags such as `0.1.0-rc.1` and `0.1.0` trigger a run regardless of path. Use manual dispatch
+  when candidate evidence is missing and record its tested commit or tree.
+- Before merging an affected PR, the maintainer must confirm that the fixture passed for the current
+  PR merge revision, or verify an identical tested tree. Resolve missing or failing fixture results
+  before merge. Keep the always-running Windows/Linux `ci` check required in branch protection.
+  GitHub leaves path-filtered required workflows pending on unaffected PRs, so the maintainer
+  enforces the fixture gate during review. Both fixture compilation modes run in the hosted job.
 - Decide the intended audience and channel. For general distribution provide the agreed
   documentation site or a justified Rust alternative; personal-use git source may use README and
   rustdoc. Any new publication/distribution channel still needs explicit authorization.

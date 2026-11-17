@@ -34,11 +34,10 @@ not accidental omissions. The release goal does not freeze internal algorithms.
 ## Consumer evidence and limits
 
 [`integration/leptos`](../integration/leptos/README.md) contains a locked, independently buildable
-workspace using the enclosing source. Seven common cases run in each of three browser engines
-against Axum and Warded; Warded adds two selection cases per engine. Reports require 21 and 27
-passes respectively, no retries/skips/flakes, plus three expected assertion failures when the ID
-predicate is deliberately broken. The runner also exercises cleanup while a child fails with an
-active server. Missing reports or runner errors cannot count as passing evidence.
+workspace using the enclosing source. The beta.1 run recorded 21 Axum and 27 Warded passes, plus
+3 expected failures for the broken ID predicate. These project totals included Node HTTP-client
+cases repeated under each of the three browser project names. The maintained suite now counts the
+HTTP-client checks once per mode and reports browser checks by engine.
 
 Warded selects outer HTTP services. The app's own router handles rendering/extraction and hydrated
 client navigation, whose lack of a new document request is verified. Full requests/reloads prove
