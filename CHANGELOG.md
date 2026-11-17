@@ -1,6 +1,8 @@
 # Changes
 
-## Unreleased
+## 0.1.0-beta.2 source candidate
+
+The second source beta for the agreed router-only first release. Cargo publication remains disabled.
 
 - Remove every trailing one-character subtag during language lookup truncation, as RFC 4647
   section 3.4 requires: `x-a-b-cc` no longer reaches the offer `x-a`, as a match or as an exclusion.
@@ -8,7 +10,7 @@
   declared capture names and raw values while handling matchit 0.9.2's normalization locally.
 - Add a security policy with GitHub private vulnerability reporting as the private route.
 - Check RustSec advisories, licenses, wildcard requirements and dependency sources with a pinned,
-  checksum-verified cargo-deny in required CI. The current graph passes with no ignored advisories.
+  checksum-verified cargo-deny in required CI. The policy configures zero advisory ignores.
 - Configure weekly Dependabot updates for the library's Cargo dependencies and GitHub Actions.
 - Run the representative Leptos fixture in GitHub Actions for affected changes and source release
   tags, gated by a required `leptos-fixture` check that every pull request reports. Report
@@ -23,10 +25,12 @@
   empty lines, are limited to 16; basic filtering weights a tag by its longest matching range; and
   a positive `Accept-Encoding` wildcard weight also applies to an unlisted `identity`.
 - Update parse-net from 0.9.3 to 0.10.0, still pinned exactly. Reuse its corrected media-range
-  parameters and matching. Keep Warded's media precedence and language selection, which 0.10.0's
-  own selection does not match in documented edge cases. Selection behavior is unchanged.
+  parameters and matching while preserving Warded's media precedence and language selection.
 - Document that a negotiation member carries at most 64 parameters, counting `q`, whatever the
   configured parameter bound. This limit is inherited and unchanged.
+- Verify a disposable consumer's pinned git install, feature builds, dependency rustdoc, update,
+  removal and recovery. Document the targeted upstream review, negotiation defaults and the
+  proposed RC source and documentation channels.
 
 ## 0.1.0-beta.1 source candidate
 

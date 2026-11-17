@@ -70,6 +70,8 @@ to refuse one below each bound. Absent, empty, standalone and repeated-field con
 including 16 accepted and 17 refused empty elements. Its eight test groups run in required CI
 (four without negotiation); the negotiation groups print per-configuration winner, miss,
 strict-refusal and undecided yields with `-- --nocapture`.
+`lookup_truncation.rs` checks consecutive singleton subtags in positive lookup and
+zero-quality exclusions, alongside the RFC private-use example.
 
 The representative [Leptos fixture](../integration/leptos/README.md) runs with Axum and Warded on
 Linux over localhost HTTP/1.1. Axum needs 3 Node HTTP-client passes and 5 browser passes per engine.

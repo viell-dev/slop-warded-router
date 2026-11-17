@@ -124,10 +124,9 @@ lines) accepts no media type or language, so even a strict predicate misses; suc
 Accept-Encoding accepts only identity. Repeated values are combined as ordered lists. An empty line
 adds no member, but once lines are combined it is an empty list element, and parsing refuses more
 than 16 empty elements, a fixed inherited limit: such a field is malformed, not memberless.
-Invalid syntax ordinarily misses; `invalid_is_error` exposes the parser
-diagnostic. Combined field bytes default to 64 KiB and can be configured with Warded's own `Limits`,
-along with list-member and parameter counts. No per-token length control is exposed: the
-dependency's similarly named setting applies to other grammar paths.
+Invalid syntax ordinarily misses. Use `invalid_is_error` to surface the parser diagnostic.
+Warded's `Limits` configures combined field bytes, list members and parameters per member.
+The dependency's per-token length setting applies to other grammar paths.
 One immutable head caches complete choices for shared offer sets and limits, including parser
 failures before error/miss mapping. The cache retains each set to prevent address reuse and is
 thread-safe; cloning a head starts a new cache. Independent sets still parse independently. There is
@@ -164,11 +163,12 @@ rules. Treating malformed input as absent could give the first offer a preferenc
 never expressed. Use `invalid_is_error` when the host needs a diagnostic and wants selection to
 stop on malformed input.
 
-The default 64 KiB combined-field limit includes separators between repeated lines. Parser
-limits also bound list members and parameters per member. These bounds leave room for long
-preference lists while limiting work on each field. They apply per negotiation operation. A
-deployment can set smaller `Limits` values to fit its workload and use cheap applicable
-conditions before parsing. Shared complete offer sets can reuse the computed choice on a head.
+The defaults allow 64 KiB of combined field bytes, including separators between repeated lines,
+and 1024 nonempty list members. The inherited caps are 16 empty list elements and 64 parameters
+per member, including `q`. These bounds leave room for long preference lists while limiting work
+per negotiation operation. A deployment can set smaller `Limits` values to fit its workload and
+use cheap applicable conditions before parsing. Shared complete offer sets can reuse the computed
+choice on a head.
 
 After the 0.1 compatibility freeze, tighter defaults could turn a previously eligible route into
 a fallback or a strict matching error. Changing malformed-as-miss to an error could stop later
