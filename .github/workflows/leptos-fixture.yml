@@ -64,12 +64,13 @@ jobs:
           revision="commit:$(cat "$evidence/commit.txt")"
           docker create --cidfile "$RUNNER_TEMP/warded-fixture.cid" \
             --cpus 4 --memory 6g --pids-limit 1024 --shm-size 1g \
-            --mount "type=bind,source=$RUNNER_TEMP/warded-fixture-source.tar,target=/source.tar,readonly" \
             --env "WARDED_FIXTURE_REVISION=$revision" warded-leptos-test \
             bash -euc 'tar -xf /source.tar -C /app
               cd /app/integration/leptos
               exec timeout --kill-after=30s 15m bash check.sh'
-          docker start --attach "$(cat "$RUNNER_TEMP/warded-fixture.cid")" 2>&1 | tee "$evidence/fixture.log"
+          container="$(cat "$RUNNER_TEMP/warded-fixture.cid")"
+          docker cp "$RUNNER_TEMP/warded-fixture-source.tar" "$container:/source.tar"
+          docker start --attach "$container" 2>&1 | tee "$evidence/fixture.log"
       - name: Collect reports and remove the container
         if: always()
         timeout-minutes: 3
@@ -79,7 +80,7 @@ jobs:
           container="$(cat "$cidfile")"
           evidence="$RUNNER_TEMP/warded-fixture-evidence"
           status=0
-          docker stop --time 10 "$container" >/dev/null || status=1
+          docker stop -t 10 "$container" >/dev/null || status=1
           # docker cp without --archive creates runner-owned output.
           docker cp "$container:/app/integration/leptos/artifacts/." "$evidence/" || status=1
           docker rm -f "$container"

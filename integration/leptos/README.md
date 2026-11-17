@@ -20,13 +20,13 @@ revision="$(git rev-parse HEAD)"
 git archive --format=tar --output="$evidence/source.tar" "$revision"
 sha256sum "$evidence/source.tar" | tee "$evidence/archive-sha256.txt"
 container="$(docker create --cpus 4 --memory 6g --pids-limit 1024 --shm-size 1g \
-  --mount "type=bind,source=$evidence/source.tar,target=/source.tar,readonly" \
   --env "WARDED_FIXTURE_REVISION=commit:$revision" \
   warded-leptos-test:rust1.99.1-playwright1.65.0 \
   bash -euc 'tar -xf /source.tar -C /app
     cd /app/integration/leptos
     exec timeout --kill-after=30s 15m bash check.sh')"
 trap 'docker rm -f "$container" >/dev/null' EXIT
+docker cp "$evidence/source.tar" "$container:/source.tar"
 status=0
 docker start --attach "$container" 2>&1 | tee "$evidence/fixture.log" || status=$?
 echo "Fixture evidence: $evidence"
@@ -93,11 +93,12 @@ is not a replacement for either.
 [Leptos fixture](../../.github/workflows/leptos-fixture.yml) runs on Ubuntu 24.04 for affected
 pull requests and pushes to `main`, for unprefixed version tags, and via manual dispatch. See the
 [release procedure](../../docs/release.md#before-rc) for the merge and candidate gates.
-Hosted jobs build from the digest-pinned base and use fresh container storage without shared writable
-volumes. The source archive is read-only. The runner copies reports out as the host user, then
-removes the container. It uploads available evidence on success and failure and retains it for
-14 days. The image is rebuilt from the Dockerfile for each hosted job. Package downloads during
-image and fixture setup are still environment inputs.
+Hosted jobs build from the digest-pinned base and use fresh container storage. They copy in the
+source archive before startup and copy reports out as the host user before removing the container.
+This keeps source and output off shared volumes and works with rootless Docker. Available evidence
+is uploaded on success and failure and retained for 14 days. The image is rebuilt from the
+Dockerfile for each hosted job. Package downloads during image and fixture setup are still
+environment inputs.
 
 The browser environment is Linux over localhost cleartext HTTP/1.1. This establishes one application,
 not all Leptos modes/extractors or framework-wide compatibility. Tower readiness and cancellation,
