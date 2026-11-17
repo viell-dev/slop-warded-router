@@ -1,0 +1,32 @@
+version: 2
+updates:
+  # The library's own manifest and lockfile. The Leptos fixture under
+  # integration/ pins its upstream starter deliberately and is updated by hand.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - "Type: Maintenance"
+    commit-message:
+      prefix: "Update"
+    # Group patch updates only: a 0.x minor update (such as 0.9 to 0.10) is a
+    # breaking Cargo change and gets its own pull request.
+    groups:
+      cargo-patch:
+        update-types:
+          - patch
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - "Type: Maintenance"
+    commit-message:
+      prefix: "Update"
+    groups:
+      actions:
+        patterns:
+          - "*"

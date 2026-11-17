@@ -198,7 +198,8 @@ either feature independently. See the [design and limits](./docs/design.md), the
 reference with `cargo doc --all-features --no-deps --open`.
 
 Report defects through [GitHub issues](https://github.com/viell-dev/slop-warded-router/issues), with
-the commit, Rust version, features, synthetic request, expected result, and actual result. This
+the commit, Rust version, features, synthetic request, expected result, and actual result. Report
+suspected vulnerabilities privately as described in [SECURITY.md](./SECURITY.md). This
 candidate does not promise framework-wide compatibility, an HTTP server, authentication, automatic
 protocol response policy, or a performance threshold. The maintained [Leptos application](./integration/leptos/README.md)
 tests one real SSR/hydration/form/streaming workflow over Linux HTTP/1.1 with three browser engines.

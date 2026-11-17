@@ -15,6 +15,15 @@ the four feature configurations and doctests, documentation with warnings denied
 package verification, and both packaged examples. Package output uses `CARGO_TARGET_DIR` when set,
 otherwise `target`; the package step chooses that output explicitly to avoid stale-path fallback.
 
+A separate required Linux job runs `cargo deny --locked check` with cargo-deny 0.20.2, verified
+by the release checksum recorded in the workflow. [deny.toml](../deny.toml) covers the all-features
+library graph including dev dependencies: RustSec vulnerability, unmaintained, unsound and yanked
+advisories fail the job, as do licenses outside the allow list, wildcard requirements and sources
+other than crates.io. Run the same command locally after installing that cargo-deny version. The
+Leptos fixture's separate lockfile is not part of this graph. Dependabot proposes weekly Cargo and
+GitHub Actions updates for the library; grouped patch updates and individual minor updates still
+pass through ordinary review and CI.
+
 Use Git Bash for this entry point on Windows. Individual Cargo commands remain usable in
 PowerShell; set `$env:RUSTDOCFLAGS = "-D warnings"` before a documentation check. The MSVC runtime
 libraries and Windows SDK must be installed and discoverable; a missing `msvcrt.lib` prevents tests

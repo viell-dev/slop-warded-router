@@ -30,12 +30,37 @@ jobs:
         shell: bash
         run: bash scripts/check.sh
 
+  dependencies:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_DENY_VERSION: 0.20.2
+      # SHA-256 of cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz, as
+      # published beside that release asset.
+      CARGO_DENY_SHA256: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - name: Install pinned cargo-deny
+        run: |
+          archive="cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl"
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/$archive.tar.gz" \
+            "https://github.com/EmbarkStudios/cargo-deny/releases/download/$CARGO_DENY_VERSION/$archive.tar.gz"
+          echo "$CARGO_DENY_SHA256  $RUNNER_TEMP/$archive.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$archive.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/$archive" >> "$GITHUB_PATH"
+      - name: Check advisories, licenses, bans and sources
+        run: cargo-deny --locked check
+
   ci:
     if: always()
-    needs: checks
+    needs: [checks, dependencies]
     runs-on: ubuntu-latest
     steps:
-      - name: Require every platform check
+      - name: Require every platform and dependency check
         env:
           CHECK_RESULT: ${{ needs.checks.result }}
-        run: test "$CHECK_RESULT" = success
+          DEPENDENCY_RESULT: ${{ needs.dependencies.result }}
+        run: test "$CHECK_RESULT" = success && test "$DEPENDENCY_RESULT" = success

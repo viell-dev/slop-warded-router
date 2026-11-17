@@ -1,5 +1,12 @@
 # Changes
 
+## Unreleased
+
+- Add a security policy with GitHub private vulnerability reporting as the private route.
+- Check RustSec advisories, licenses, wildcard requirements and dependency sources with a pinned,
+  checksum-verified cargo-deny in required CI. The current graph passes with no ignored advisories.
+- Configure weekly Dependabot updates for the library's Cargo dependencies and GitHub Actions.
+
 ## 0.1.0-beta.1 source candidate
 
 This is an unpublished source candidate for the agreed router-only first release. Publication
