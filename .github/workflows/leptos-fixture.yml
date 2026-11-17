@@ -62,15 +62,15 @@ jobs:
         run: |
           evidence="$RUNNER_TEMP/warded-fixture-evidence"
           revision="commit:$(cat "$evidence/commit.txt")"
-          docker create --cidfile "$RUNNER_TEMP/warded-fixture.cid" \
+          docker create --interactive --cidfile "$RUNNER_TEMP/warded-fixture.cid" \
             --cpus 4 --memory 6g --pids-limit 1024 --shm-size 1g \
             --env "WARDED_FIXTURE_REVISION=$revision" warded-leptos-test \
-            bash -euc 'tar -xf /source.tar -C /app
+            bash -euc 'tar -xf - -C /app
               cd /app/integration/leptos
               exec timeout --kill-after=30s 15m bash check.sh'
           container="$(cat "$RUNNER_TEMP/warded-fixture.cid")"
-          docker cp "$RUNNER_TEMP/warded-fixture-source.tar" "$container:/source.tar"
-          docker start --attach "$container" 2>&1 | tee "$evidence/fixture.log"
+          docker start --attach --interactive "$container" <"$RUNNER_TEMP/warded-fixture-source.tar" \
+            2>&1 | tee "$evidence/fixture.log"
       - name: Collect reports and remove the container
         if: always()
         timeout-minutes: 3
