@@ -99,7 +99,12 @@ case "${1:-}" in
         mkdir -p artifacts
         artifact_dir="$(mktemp -d "$PWD/artifacts/run.XXXXXXXX")"
         printf '%s\n' "$WARDED_FIXTURE_REVISION" | tee "$artifact_dir/source-revision.txt"
-        [[ "$(node --version)" == "v$(cat .nvmrc)" ]]
+        node_version="$(node --version)"
+        expected_node_version="v$(cat .nvmrc)"
+        if [[ "$node_version" != "$expected_node_version" ]]; then
+            echo "Fixture requires Node $expected_node_version, found $node_version" >&2
+            exit 1
+        fi
         cargo fmt --check
         cargo clippy --locked --no-default-features --features ssr --bin warded-leptos-probe -- -D warnings
         cargo clippy --locked --no-default-features --features hydrate --target wasm32-unknown-unknown --lib -- -D warnings
