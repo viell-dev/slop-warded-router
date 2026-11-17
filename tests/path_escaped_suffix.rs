@@ -80,6 +80,17 @@ fn escaped_suffix_keeps_definition_errors() {
         "/{id}{{x}}/{missing",
     ] {
         let error: DefinitionError = path(pattern).expect_err(pattern);
-        assert!(!error.to_string().is_empty(), "{pattern}");
+        let message = error.to_string();
+        match pattern {
+            "/{id}{{x}}/{id}" => assert_eq!(message, "duplicate capture name: id"),
+            "/{na{{me}{{x}}/{*na{{me}" => assert_eq!(message, "duplicate capture name: na{me"),
+            "/{id}{{x}" => assert_eq!(message, "unmatched closing brace in path pattern"),
+            // matchit rejects these; the message names the declared pattern and
+            // never the one-byte placeholder used during insertion.
+            _ => {
+                assert!(message.starts_with(&format!("{pattern:?}: ")), "{message}");
+                assert!(!message.contains("{a}"), "{message}");
+            }
+        }
     }
 }

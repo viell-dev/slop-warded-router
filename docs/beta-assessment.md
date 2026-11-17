@@ -105,8 +105,8 @@ report was submitted. matchit's latest listed tag remains 0.9.2. No dependency u
 - Keep the 25-ordinary-parameter guard, unmatched-closer rejection and the original failed probes.
   Terminal catch-alls remain outside that capacity. Revisit only with tested dependency evidence.
 - Beta.1 documented matchit 0.9.2's rejection of some valid escaped suffixes. The local fix for
-  [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13) preserves the escape
-  marker during insertion and returns the declared capture name. Retain the ASCII and Unicode
+  [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13) inserts a one-byte
+  placeholder name where matchit would shift the marker wrongly and returns the declared name. Retain the ASCII and Unicode
   matching regressions when reconsidering the fix for a future dependency version.
 - Nesting, destination/body/clone bounds and definition diagnostics retain the API decisions above;
   change only for demonstrated consumer needs, without advertising broader support first.

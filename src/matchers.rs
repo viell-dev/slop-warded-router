@@ -103,8 +103,10 @@ impl Matcher for ExactPath {
 /// A compiled path pattern, evaluated independently of all other route patterns.
 #[derive(Clone, Debug)]
 pub struct PathMatcher {
-    // Each replacement is indexed by its position in matchit's parameter list.
-    router: matchit::Router<Box<[(usize, String)]>>,
+    router: matchit::Router<()>,
+    // Declared names for placeholder parameters, in ascending order of their
+    // position in matchit's parameter list. Usually empty.
+    renamed: Box<[(usize, String)]>,
 }
 impl Matcher for PathMatcher {
     fn evaluate(&self, head: &Head<'_>) -> MatchResult {
@@ -112,18 +114,12 @@ impl Matcher for PathMatcher {
             return Ok(None);
         };
         let mut captures = Captures::default();
-        if found.value.is_empty() {
-            for (name, value) in found.params.iter() {
-                captures.insert(name, value)?;
-            }
-        } else {
-            let mut names = found.value.iter().peekable();
-            for (index, (name, value)) in found.params.iter().enumerate() {
-                let name = names
-                    .next_if(|(position, _)| *position == index)
-                    .map_or(name, |(_, declared)| declared.as_str());
-                captures.insert(name, value)?;
-            }
+        let mut renamed = self.renamed.iter().peekable();
+        for (index, (name, value)) in found.params.iter().enumerate() {
+            let name = renamed
+                .next_if(|(position, _)| *position == index)
+                .map_or(name, |(_, declared)| declared.as_str());
+            captures.insert(name, value)?;
         }
         Ok(Some(captures))
     }
@@ -146,6 +142,8 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
     // 26th ordinary parameter. Catch-alls are not normalized. Revisit this guard
     // when adopting an upstream version that returns an error or lifts the limit.
     // Check decoded capture names and unmatched closers on the declared pattern.
+    // The closer check began as containment for the escape-marker defect below;
+    // the placeholder repair now avoids that defect, so it is defence in depth.
     // matchit remains responsible for validating the name and pattern grammar.
     let mut names = BTreeSet::new();
     let mut ordinary_parameters = 0;
@@ -191,15 +189,18 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
             _ => {}
         }
     }
+    let invalid_pattern = |error| DefinitionError(format!("{pattern:?}: {error}"));
     let mut router = matchit::Router::new();
     if repairs.is_empty() {
         router
-            .insert(pattern, Box::default())
-            .map_err(|error| DefinitionError(error.to_string()))?;
-        return Ok(PathMatcher { router });
+            .insert(pattern.as_str(), ())
+            .map_err(invalid_pattern)?;
+        return Ok(PathMatcher {
+            router,
+            renamed: Box::default(),
+        });
     }
 
-    let invalid_pattern = |error| DefinitionError(format!("{pattern:?}: {error}"));
     let mut rewritten = String::with_capacity(pattern.len());
     let mut original_names = Vec::with_capacity(repairs.len());
     let mut copied = 0;
@@ -215,10 +216,11 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
         original_names.push((index, name));
     }
     rewritten.push_str(&pattern[copied..]);
-    router
-        .insert(rewritten, original_names.into_boxed_slice())
-        .map_err(invalid_pattern)?;
-    Ok(PathMatcher { router })
+    router.insert(rewritten, ()).map_err(invalid_pattern)?;
+    Ok(PathMatcher {
+        router,
+        renamed: original_names.into_boxed_slice(),
+    })
 }
 
 fn header_definition(
