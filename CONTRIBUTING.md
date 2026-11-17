@@ -4,9 +4,15 @@ Warded is an early Rust library maintained by agents. Small, well-scoped reports
 are welcome. Establish scope before proposing a new framework, server implementation, or unrelated
 feature. Describe behavior with synthetic requests and expected outcomes.
 
-Use a branch and pull request against `main`. Relevant tests and required CI must pass, followed by
-a deliberate review of the complete change. Document the Rust version, platforms, commands, and
-any checks that remain unavailable. Do not infer compatibility from matching type names or mocks.
+Use a branch and pull request against `main`. Both `ci` and `leptos-fixture` are required.
+The former includes Windows/Linux library and package checks and the Linux dependency policy
+check. The latter runs the full fixture when its inputs change and verifies that decision on
+every pull request. The [release procedure](./docs/release.md#before-rc) lists affected paths,
+manual dispatch and tag triggers. After relevant tests and required checks pass, review the
+complete change and record the platforms, Rust version, commands and evidence limits.
+
+Report suspected vulnerabilities using the [private GitHub route](./SECURITY.md). Security fixes
+land on `main` in the current 0.1.0 prerelease line.
 
 During early releases, use existing routers' test suites as a recurring source of adversarial
 inputs and missing scenarios. For substantial matching/dispatch changes and alpha/beta/RC

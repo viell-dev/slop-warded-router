@@ -1,7 +1,7 @@
 # Verification
 
-Use Rust 1.99.1 from `rust-toolchain.toml`. CI requires Windows and Linux checks and a successful
-aggregate `ci` result before integration.
+Use Rust 1.99.1 from `rust-toolchain.toml`. Integration requires `ci` (Windows and Linux library
+checks and Linux dependency policy) and `leptos-fixture` (the fixture gate).
 
 From the repository root, run the same entry point as both CI platforms:
 
@@ -78,7 +78,25 @@ produce one specific failure in each of Chromium, Firefox and WebKit with no HTT
 The runner checks the live server identity, binds reports to the exact source and verifies cleanup
 after a forced failure. Hosted and local runs execute the same suite. It does not replace the
 required Windows/Linux library CI or human release testing. On pull requests the required
-`leptos-fixture` check runs the suite when the fixture's inputs change.
+`leptos-fixture` check runs the suite when the [fixture's inputs change](./release.md#before-rc).
+
+## Clean git-source consumer
+
+Use a Bash environment with Rust 1.99.1, Git and HTTPS access to GitHub and crates.io. Pass the
+full SHA of a pushed revision:
+
+```sh
+bash scripts/check-clean-consumer.sh <pushed-commit-sha>
+```
+
+The [script](../scripts/check-clean-consumer.sh) creates a disposable Cargo package outside the
+source tree with its own target directory. It first runs against beta.1, then changes the `rev`
+and updates the existing lockfile. It checks the exact resolved commit, runs matching and
+example-equivalent feature checks with defaults, without defaults and with each optional feature
+alone, then builds Warded's dependency rustdoc with warnings denied. Finally it removes Warded,
+checks that its package and source are gone from the lockfile, and restores and runs the pinned
+candidate. Both revisions are resolved through Git. Use `scripts/check.sh` separately for
+reconstructed Cargo package verification.
 
 ## Alpha.2 regression and cost probes
 

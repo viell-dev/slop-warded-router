@@ -1,6 +1,6 @@
 # Security policy
 
-Warded is unpublished source in its `0.1.0` prerelease line. Security fixes are made on `main`;
+Warded is available as git source in its `0.1.0` prerelease line. Security fixes are made on `main`;
 there are no separately maintained release branches. Pin a tested commit `rev` and update it to
 pick up a fix.
 
@@ -30,5 +30,7 @@ only as trustworthy as the `TransportSecurity` value the host application suppli
 in those components to their own projects. The Leptos application under `integration/` is a test
 fixture and is not distributed.
 
-Dependencies are checked against the RustSec advisory database with `cargo deny check` in required
-CI, alongside license and source policy; see [deny.toml](./deny.toml).
+The required `ci` check runs `cargo-deny --locked check` against the RustSec advisory database
+and enforces the [dependency policy](./deny.toml). Fixes also go through the required
+`leptos-fixture` check. See the [release procedure](./docs/release.md#before-rc) for when it
+runs the full fixture.

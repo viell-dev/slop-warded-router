@@ -40,9 +40,12 @@ within that goal. Beta is for fixes and polish; a material goal change needs a n
 RC requires the owner's **explicit approval after review** of a concrete proposal/candidate.
 Independent agent agreement alone does not authorize this transition. Before requesting it:
 
-- Finish beta findings and compatibility constraints; rerun exact-source tests, packaged examples,
-  installation/removal and documentation commands. Refresh advisories, resolved licenses and
-  dependency mitigations; establish an appropriate private vulnerability-reporting route.
+- Finish beta findings and compatibility constraints. Run the [verification procedure](./verification.md)
+  on an archive of the exact revision, including packaged examples and dependency policy. Run the
+  clean-consumer check against the same pushed commit and record the install, update, removal,
+  recovery, features and rustdoc results. Record the commit, tree, toolchain, checks and artifacts
+  in the PR. Verify the [GitHub private vulnerability-reporting route](../SECURITY.md). Security
+  fixes for the current 0.1.0 prerelease line land on `main`.
 - Require exact-candidate success from the hosted [Leptos fixture](../integration/leptos/README.md).
   It runs on pull requests to `main` and pushes to `main` for changes to library source, the root
   `Cargo.toml`, Cargo configuration, the Rust toolchain file, the fixture (except its Markdown) or
@@ -54,11 +57,30 @@ Independent agent agreement alone does not authorize this transition. Before req
   the fixture passed, or when it was skipped because none of those paths changed. Failed, cancelled
   or missing fixture results therefore block merge. Both fixture compilation modes run in the
   hosted job.
-- Decide the intended audience and channel. For general distribution provide the agreed
-  documentation site or a justified Rust alternative; personal-use git source may use README and
-  rustdoc. Any new publication/distribution channel still needs explicit authorization.
+- Recommend continuing the personal-use git-source channel for the first RC. Pin a tested commit
+  with Cargo's `rev`. An unprefixed annotated tag can name the same commit when authorized.
+  The README covers onboarding and links to runnable examples and focused guides. Build rustdoc
+  locally from that revision for the corresponding API reference. This meets the source-only goal
+  in [#8](https://github.com/viell-dev/slop-warded-router/issues/8#rc-gate-reviewed-concrete-candidate-plus-owner-approval).
+  Keep `publish = false`. General distribution needs a separately authorized channel, with a
+  documentation site or a justified Rust alternative such as docs.rs. Starting a site or publishing
+  to crates.io, docs.rs or GitHub Releases requires explicit owner authorization.
+- Prepare the human-use package and assigned open request described below before handing off a
+  candidate. The report may arrive during beta or RC, and stable depends on it.
 - Prepare and independently review the exact RC proposal, explain evidence limits and remaining
   findings, and link an assigned, self-contained owner approval issue. Do not promote while it waits.
+
+## Git-source handoff
+
+Give consumers the version, full commit SHA and direct source link. Link the changelog, README
+and examples at the same commit. Generate rustdoc there with the README command. Verify the
+download and its Cargo manifests and lockfiles, retain the archive checksum and check results,
+and run the clean-consumer verification with the published `rev`. If an annotated tag is
+authorized, confirm it resolves to the verified commit before advertising it.
+
+For a failed candidate or interrupted handoff, keep the previous working `rev` available and
+record the failed check. Issue a fresh candidate for a material fix and give consumers its new
+SHA and update instructions. Preserve any tag or commit already given to consumers.
 
 ## Before stable
 

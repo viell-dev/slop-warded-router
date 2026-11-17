@@ -1,9 +1,9 @@
 # First-release API and evidence assessment
 
 The [agreed goal](https://github.com/viell-dev/slop-warded-router/issues/8) bounds the first stable
-0.1 line. This is the consumer-informed freeze assessment for the beta.1 source candidate, not
-an RC/stable approval or a claim of independent implementation review. The promotion PR records
-exact revisions, executed checks, review findings and the final gate decision.
+0.1 line. This assessment records the consumer-informed API decisions, measured costs and
+dependency dispositions that inform promotion. The promotion PR records exact revisions,
+executed checks, review findings and the gate decision.
 
 ## API decisions
 
@@ -65,24 +65,19 @@ fuzzing.
 
 ## Selection-cost decision
 
-Run `cargo bench --bench selection --locked`. Each timed sample asserts the selected target or
+Run `cargo bench --locked --bench selection`. Each timed sample asserts the selected target or
 miss; path hits also assert the raw capture. Each selection creates a fresh `Head`, including its
 cache. Three warmups precede 1000 path selections or 20 negotiation selections. The probe covers:
 
 - Compiled path tables with 16, 128 and 1024 routes: early hit, last hit and miss.
 - Independent media acceptability predicates versus a shared complete offer set: 16 and 128 routes,
   early/late/miss, four unsupported members or 1023, with a matching member appended for hits.
-- Approximately 240–257 bytes and 61,379–61,397 bytes, within the default 64 KiB/1024-member limits.
+- Small fields of 239–257 bytes and near-bound fields of 61,379–61,397 bytes, within the default
+  64 KiB and 1024-member limits.
 
-The development and candidate measurements used Linux Docker, Rust 1.99.1 release profile, an
-Intel i7-4930K host, four CPU quota, 4 GiB and 512 PIDs. They measured about 0.16–0.20 µs for early
-path hits, 13.6–17.1 µs for 1024-route last hits/misses, and about 37–42 ms for 128 independent
-negotiation-first late hits/misses near the field bound. Shared offers reduced the latter shape to
-about 2.3–2.7 ms, while costing more than an independent early hit because the whole offer set is
-scored. These are mean diagnostic samples on one host, including assertions, not percentiles or a
-portable throughput promise. The host was not isolated; the candidate run overlapped browser work.
-The promotion PR retains the final candidate run and its exact revision; do not compare these
-shapes directly with the earlier smaller shared-offer probe as if only the implementation changed.
+The exact CSV records diagnostic means from Cargo's optimized benchmark profile. These samples
+support the API decision below. The earlier alpha.2 shared-offer probe used a smaller input and
+measured a different workload.
 
 **Decision:** no indexing-driven API change is needed for the scoped first release. Linear path
 selection has a documented cost; repeated negotiation dominates the measured adverse case. Keep
@@ -97,12 +92,57 @@ errors, raw URI/captures and non-path routes. Include small-table, construction 
 An index is not justified merely by a large route count, nor does this measurement prove that every
 enterprise API meets its latency budget. No performance regression threshold is introduced.
 
+## Beta.1 benchmark record
+
+The [release checkpoint](https://github.com/viell-dev/slop-warded-router/issues/5#issuecomment-6785590604)
+retains the final Git-archive run from `0897dddddb196ed801a1c6c8053e1bafb8d93df4`, whose tree matches
+integrated beta.1 `59710b0`. Archive SHA-256
+`07684a145ec43c91e2c85e342b61d61fe974b1bcb83c4532e5ee55b6eff03dc8`. This run used Rust 1.99.1
+in Linux Docker on an Intel i7-4930K with four CPU quota, 4 GiB and 512 PIDs. Ordinary scheduler
+activity was not isolated. The CSV shows mean microseconds per selection, including assertions.
+
+```csv
+strategy,routes,field_bytes,case,iterations,mean_us
+path,16,0,early,1000,0.210
+path,16,0,late,1000,0.382
+path,16,0,miss,1000,0.226
+path,128,0,early,1000,0.184
+path,128,0,late,1000,1.764
+path,128,0,miss,1000,1.707
+path,1024,0,early,1000,0.184
+path,1024,0,late,1000,15.374
+path,1024,0,miss,1000,15.040
+shared-offers,16,255,early,20,4.152
+independent,16,255,early,20,2.385
+shared-offers,16,256,late,20,6.350
+independent,16,256,late,20,31.417
+shared-offers,16,239,miss,20,5.632
+independent,16,239,miss,20,28.169
+shared-offers,16,61395,early,20,602.481
+independent,16,61395,early,20,325.043
+shared-offers,16,61396,late,20,604.549
+independent,16,61396,late,20,5180.885
+shared-offers,16,61379,miss,20,602.755
+independent,16,61379,miss,20,5178.306
+shared-offers,128,255,early,20,18.148
+independent,128,255,early,20,1.867
+shared-offers,128,257,late,20,35.405
+independent,128,257,late,20,254.408
+shared-offers,128,239,miss,20,32.648
+independent,128,239,miss,20,224.531
+shared-offers,128,61395,early,20,2672.373
+independent,128,61395,early,20,323.301
+shared-offers,128,61397,late,20,2686.992
+independent,128,61397,late,20,37698.936
+shared-offers,128,61379,miss,20,2351.841
+independent,128,61379,miss,20,36311.075
+```
+
 ## Dependency and follow-up dispositions
 
-The [dependency overview](https://github.com/viell-dev/slop-warded-router/issues/4) stays open for
-maintained mitigations. During this preparation, both existing upstream reports remained open with
-no comments; no acceptance of further agent-authored submissions is inferred and no new upstream
-report was submitted. matchit's latest listed tag remains 0.9.2. No dependency upgrade is bundled.
+The [dependency overview](https://github.com/viell-dev/slop-warded-router/issues/4) tracks
+maintained mitigations, upstream reports and reconsideration triggers. The
+[upstream-test comparison](./upstream-tests.md) records the affected cases and pinned sources.
 
 - Keep an exact parse-net pin, Warded scoring and retained protocol counterexamples. Beta.1 pinned
   0.9.3. After beta.1, the maintainer fixed and closed the first report in 0.10.0; its own selection
@@ -115,18 +155,19 @@ report was submitted. matchit's latest listed tag remains 0.9.2. No dependency u
   history. No reason is established to restore the replaced parser or require registry validation.
 - Keep the 25-ordinary-parameter guard, unmatched-closer rejection and the original failed probes.
   Terminal catch-alls remain outside that capacity. Revisit only with tested dependency evidence.
-- Beta.1 documented matchit 0.9.2's rejection of some valid escaped suffixes. The local fix for
-  [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13) inserts a one-byte
-  placeholder name where matchit would shift the marker wrongly and returns the declared name. Retain the ASCII and Unicode
-  matching regressions when reconsidering the fix for a future dependency version.
+- Beta.1 documented a one-byte ASCII-name workaround for matchit 0.9.2's rejection of some valid
+  escaped suffixes. The local fix for [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13)
+  inserts a one-byte ASCII placeholder where matchit would shift the marker wrongly and returns
+  the declared name. Retain the ASCII and Unicode matching regressions when reconsidering the
+  fix for a future dependency version.
 - Nesting, destination/body/clone bounds and definition diagnostics retain the API decisions above;
   change only for demonstrated consumer needs, without advertising broader support first.
 - Contain the prototype cargo-leptos cleanup problem by starting/supervising the binary directly;
   verify failure cleanup before container teardown. Preserve the original observation; no upstream
   fix is required by this fixture. Remove the starter's ignored metadata from the maintained copy.
-- Keep publication disabled. Private reporting, current advisory/license/installation preparation,
-  a hosted fixture workflow, audience/docs channel and human use remain at their agreed RC/stable
-  stages. This candidate starts none of those distribution channels.
+- Keep Cargo publication disabled. GitHub private reporting, dependency policy checks and the
+  hosted fixture gate are in place. The [release procedure](./release.md) describes exact-candidate
+  verification, the source distribution channel and the pending human release-testing gate.
 
 The recurring [upstream-test comparison](./upstream-tests.md) records affected areas and reuse for
 unchanged ones. The [release procedure](./release.md) carries unfinished RC/stable work; beta
