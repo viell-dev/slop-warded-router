@@ -110,8 +110,11 @@ Offers must have the same non-negotiation applicability; otherwise an unavailabl
 win the offer comparison. Routing itself remains ordered.
 
 Language matching chooses lookup or basic filtering explicitly. Missing fields use field-specific
-protocol semantics; for example, absent and empty Accept-Encoding differ. Repeated values are
-combined as ordered lists. Invalid syntax ordinarily misses; `invalid_is_error` exposes the parser
+protocol semantics. An absent field accepts every offer, so a set chooses its first. A present
+field without list members (an empty value, only empty list elements, or only empty lines) accepts
+no media type or language, so even a strict predicate misses; an empty Accept-Encoding accepts
+only identity. Repeated values are combined as ordered lists, to which an empty line adds nothing.
+Invalid syntax ordinarily misses; `invalid_is_error` exposes the parser
 diagnostic. Combined field bytes default to 64 KiB and can be configured with Warded's own `Limits`,
 along with list-member and parameter counts. No per-token length control is exposed: the
 dependency's similarly named setting applies to other grammar paths.
@@ -121,13 +124,15 @@ thread-safe; cloning a head starts a new cache. Independent sets still parse ind
 no route index, and raw path interpretation and ordered error propagation remain unchanged.
 
 Media specificity compares wildcard/type specificity and then the number of applicable parameters;
-`q` is a weight wherever it appears. Media, encoding, and basic filtering ties use offer order.
-Lookup processes positive client ranges by descending weight/client order, completing truncation
-before the next range, and uses a wildcard only as a final default. As in RFC 4647 section 3.4, a
-one-character subtag is removed together with its closest trailing subtag, so `x-a-b-cc` never
-truncates to `x-a`. Zero-quality ranges reject an
-equal or less specific lookup match, retaining explicit exclusions without letting a broad wildcard
-erase a more specific positive preference. Registry validation of server language tags is outside
+`q` is a weight wherever it appears. Basic filtering weights a tag by its longest matching range,
+and `*` covers only tags no other range matches. Media, encoding, and basic filtering ties use
+offer order. Lookup processes positive client ranges by descending weight/client order, completing
+truncation before the next range, and uses a wildcard only as a final default. As in RFC 4647
+section 3.4, a one-character subtag is removed together with its closest trailing subtag, so
+`x-a-b-cc` never truncates to `x-a`. Zero-quality ranges
+reject an equal or less specific lookup match (an exact range, then a truncated one, then `*`),
+retaining explicit exclusions without letting a broad wildcard erase a more specific positive
+preference. Registry validation of server language tags is outside
 the constructor's well-formed-syntax contract.
 
 Method helpers match only their named method. `secured` and `unsecure` inspect trusted contextual

@@ -14,6 +14,13 @@
   tags, gated by a required `leptos-fixture` check that every pull request reports. Report
   HTTP-client and browser results separately, check selected page elements and live router
   identity, and retain exact-revision reports, traces and server logs.
+- Add grammar-guided valid Accept, Accept-Language and Accept-Encoding corpus cases whose preferred
+  and acceptable offers come from an independent oracle written from RFC 9110, RFC 4647 and the
+  documented rules. Separate absent, empty, standalone and repeated-field controls, and report
+  per-configuration winner, miss and refusal yields.
+- Document that a present `Accept` or `Accept-Language` field without list members accepts no
+  offer, also in strict mode, and that basic filtering weights a tag by its longest matching range.
+  These describe existing behavior.
 
 ## 0.1.0-beta.1 source candidate
 
