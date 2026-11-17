@@ -10,5 +10,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-ini
     && rustup target add wasm32-unknown-unknown
 RUN cargo install cargo-leptos --version 0.3.12 --locked --jobs 2
 
-ENV CI=1 CARGO_BUILD_JOBS=2 CARGO_PROFILE_DEV_DEBUG=0
+# cargo-leptos downloads Sass for style/main.scss. Pin the version it would
+# otherwise look up on GitHub, so the stylesheet does not depend on API access.
+ENV CI=1 CARGO_BUILD_JOBS=2 CARGO_PROFILE_DEV_DEBUG=0 LEPTOS_SASS_VERSION=1.86.0
 WORKDIR /app

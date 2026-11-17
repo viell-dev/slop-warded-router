@@ -80,8 +80,10 @@ For the exact `/users/{value}` path shape, Warded's explicit rejection service r
 404 for invalid, encoded or overflowing values. The HTTP client tests raw path bytes, which a
 browser can normalize before sending. A trailing slash falls outside the exact shape.
 In both modes, `/users/-1/` returns 404 with the Leptos user page and `-1` in its selected element.
-The fixture preserves this fallback behavior. A second resource tests a header **and** a raw
-query condition, including ordered rejection and preserved URI.
+This records Leptos's fallback rendering, whose route matching ignores the trailing slash; it is not
+a Warded guarantee. An application that must not render rejected values should also route or
+redirect trailing-slash variants, or validate in the component. A second resource tests a header
+**and** a raw query condition, including ordered rejection and preserved URI.
 
 After hydration, Leptos's browser router handles client navigation without a new document request.
 The test verifies that boundary; it reloads to exercise the HTTP router again. Application
@@ -91,14 +93,17 @@ is not a replacement for either.
 ## Triggers and limits
 
 [Leptos fixture](../../.github/workflows/leptos-fixture.yml) runs on Ubuntu 24.04 for affected
-pull requests and pushes to `main`, for unprefixed version tags, and via manual dispatch. See the
-[release procedure](../../docs/release.md#before-rc) for the merge and candidate gates.
+pull requests and pushes to `main`, for unprefixed version tags, and via manual dispatch. On every
+pull request a short job decides whether library source, the root manifest, Cargo configuration,
+the toolchain file, the fixture (except its Markdown) or the workflow changed; the required
+`leptos-fixture` check then needs a passing fixture run, or a skipped run when nothing it uses
+changed. See the [release procedure](../../docs/release.md#before-rc) for the candidate gates.
 Hosted jobs build from the digest-pinned base and use fresh container storage. They stream the
 source archive into the container and copy reports out as the host user before removing the
 container. This keeps source and output off shared volumes and works with rootless Docker.
 Available evidence is uploaded on success and failure and retained for 14 days. The image is rebuilt
 from the Dockerfile for each hosted job. Package downloads during image and fixture setup are still
-environment inputs.
+environment inputs; the Sass version that cargo-leptos downloads is pinned in the Dockerfile.
 
 The browser environment is Linux over localhost cleartext HTTP/1.1. This establishes one application,
 not all Leptos modes/extractors or framework-wide compatibility. Tower readiness and cancellation,
