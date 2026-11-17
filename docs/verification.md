@@ -65,12 +65,13 @@ boundaries, plus Accept-family malformed/policy/cache/limit checks. Seed and fai
 reported for generated cases. Path controls assert static, catch-all and two-capture hits, preserve
 the one-byte escaped-suffix case, and verify the 24, 25 and 26 ordinary-parameter boundaries.
 
-Run `bash integration/leptos/check.sh` in the provisioned Linux Docker image for the representative
-application; its [README](../integration/leptos/README.md) gives exact container commands, triggers,
-counts, negative control, cleanup checks and evidence limits. It uses the enclosing source, compares
-21 Axum cases with 27 Warded cases across Chromium/Firefox/WebKit, and requires three deliberately
-broken-predicate failures. It is a manual beta gate; hosted affected-change/release execution is
-required before RC. The browser check does not replace ordinary required library CI or human use.
+The representative [Leptos fixture](../integration/leptos/README.md) runs with Axum and Warded on
+Linux over localhost HTTP/1.1. Axum needs 3 Node HTTP-client passes and 5 browser passes per engine.
+Warded needs 5 HTTP-client passes and 6 browser passes per engine. The broken ID predicate must
+produce one specific failure in each of Chromium, Firefox and WebKit with no HTTP-client cases.
+The runner checks the live server identity, binds reports to the exact source and verifies cleanup
+after a forced failure. The hosted and local commands run the same suite with separate purposes
+from required Windows/Linux library CI and human release testing.
 
 ## Alpha.2 regression and cost probes
 

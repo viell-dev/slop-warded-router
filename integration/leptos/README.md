@@ -8,36 +8,57 @@ has an independent Cargo workspace and lockfile.
 ## Run
 
 Use disposable Docker on Linux with four CPUs, 6 GiB RAM, 1 GiB shared memory and 1024 PIDs.
-The image pins Rust 1.99.1, cargo-leptos 0.3.12 and Playwright 1.65.0; `.nvmrc` records its tested
-Node version. Mount the **repository root** at `/app`:
+The Dockerfile pins the Playwright 1.65.0 base by digest, Rust 1.99.1 and cargo-leptos 0.3.12.
+`.nvmrc` records the tested Node version. Save this as a Bash script and run it from the
+repository root:
 
-```sh
+```bash
+set -euo pipefail
 docker build -t warded-leptos-test:rust1.99.1-playwright1.65.0 integration/leptos
-docker run --rm --cpus 4 --memory 6g --pids-limit 1024 --shm-size 1g \
-  -v "$PWD:/app" -w /app/integration/leptos \
-  warded-leptos-test:rust1.99.1-playwright1.65.0 timeout 600s bash check.sh
+evidence="$(mktemp -d)"
+revision="$(git rev-parse HEAD)"
+git archive --format=tar --output="$evidence/source.tar" "$revision"
+sha256sum "$evidence/source.tar" | tee "$evidence/archive-sha256.txt"
+container="$(docker create --cpus 4 --memory 6g --pids-limit 1024 --shm-size 1g \
+  --mount "type=bind,source=$evidence/source.tar,target=/source.tar,readonly" \
+  --env "WARDED_FIXTURE_REVISION=commit:$revision" \
+  warded-leptos-test:rust1.99.1-playwright1.65.0 \
+  bash -euc 'tar -xf /source.tar -C /app
+    cd /app/integration/leptos
+    exec timeout --kill-after=30s 15m bash check.sh')"
+trap 'docker rm -f "$container" >/dev/null' EXIT
+status=0
+docker start --attach "$container" 2>&1 | tee "$evidence/fixture.log" || status=$?
+echo "Fixture evidence: $evidence"
+docker cp "$container:/app/integration/leptos/artifacts" "$evidence/"
+exit "$status"
 ```
 
-Run both commands from the repository root. Docker, its image cache and toolchain downloads are
-prerequisites; no host port or application account is needed. Optional named Cargo, build, npm and
-tool-download caches can reduce repeated build cost. Do not share a writable build directory with
-a simultaneous run. For an already provisioned Linux environment, `bash integration/leptos/check.sh`
-is the equivalent entry point. Native Windows browser execution has not been established.
+Docker and toolchain downloads are prerequisites. Each server binds an OS-assigned localhost port
+inside the container. The runner queries `/__test/router` through the active router to confirm Axum,
+Warded or the deliberately broken Warded configuration. Each JSON and HTML report records the
+source marker, live router identity and URL. For an already provisioned Linux environment, run
+`WARDED_FIXTURE_REVISION=commit:<sha> bash integration/leptos/check.sh` with the tested commit
+SHA, or pass `archive-sha256:<sha256>` for a separately verified source archive.
 
-The runner checks formatting, both compilation modes with Clippy, locked builds, TypeScript and:
+The runner checks formatting, both compilation modes with Clippy, locked builds and TypeScript.
+It then requires these Playwright results:
 
-- **Axum:** seven cases in each of Chromium, Firefox and WebKit: exactly 21 passes.
-- **Warded:** the same seven plus two selection cases in each browser: exactly 27 passes.
-- **Negative control:** the fixture's numeric-ID predicate deliberately rejects IDs; exactly three
-  selected checks must fail with 404 instead of 200. A runner crash or empty selection is not an
-  acceptable negative result.
-- **Failure cleanup:** a supervised child exits 97 while its server is alive. Before the container
-  exits, the supervisor requires that exit code, a dead server PID and a closed listening port.
+| Variant | Node HTTP client | Chromium | Firefox | WebKit | Total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Axum | 3 passes | 5 passes | 5 passes | 5 passes | 18 passes |
+| Warded | 5 passes | 6 passes | 6 passes | 6 passes | 23 passes |
+| Broken ID predicate | 0 | 1 failure | 1 failure | 1 failure | 3 expected failures |
 
-Retries, skips, flakes, unexpected counts, missing JSON reports and runner errors fail the command.
-Reports and server logs go to ignored `artifacts/`; failing Playwright traces go to
-`end2end/test-results/`. Preserve these before removing a disposable export. The script starts
-the compiled binary itself, so cargo-leptos's end-to-end process cleanup does not own its lifetime.
+The negative control must fail specifically because `GET /users/42` returns 404 in place of 200.
+Retries, skips, flakes, unexpected counts, missing reports and runner errors fail the command.
+The runner supervises the compiled server directly and verifies that a child failing with exit 97
+leaves a dead server PID and closed port while the supervisor is still in the container.
+
+The ignored `artifacts/run.*/` directory holds each variant's JSON and HTML reports, server log,
+identity and retained failure traces. Historically, beta.1 recorded 21 Axum passes, 27 Warded
+passes and 3 broken-predicate failures. Those totals included Node HTTP-client cases repeated
+under all three browser project names.
 
 ## What this demonstrates
 
@@ -55,8 +76,12 @@ latency threshold.
 The Warded-only cases split `/users/{value}` between a `UserId` parser and a username predicate.
 The selected wrapper reads Warded's `Captures` extension and returns the chosen kind and exact raw
 capture in response headers. Leptos independently reads its own parameter map for rendering.
-Invalid, encoded and overflowing IDs cannot re-enter through the framework fallback. A second
-resource tests a header **and** a raw query condition, including ordered rejection and preserved URI.
+For the exact `/users/{value}` path shape, Warded's explicit rejection service returns a plain
+404 for invalid, encoded or overflowing values. The HTTP client tests raw path bytes, which a
+browser can normalize before sending. A trailing slash falls outside the exact shape.
+In both modes, `/users/-1/` returns 404 with the Leptos user page and `-1` in its selected element.
+The fixture preserves this fallback behavior. A second resource tests a header **and** a raw
+query condition, including ordered rejection and preserved URI.
 
 After hydration, Leptos's browser router handles client navigation without a new document request.
 The test verifies that boundary; it reloads to exercise the HTTP router again. Application
@@ -65,12 +90,14 @@ is not a replacement for either.
 
 ## Triggers and limits
 
-Run this command for changes to this fixture, matching/captures/selection, dispatch/readiness/body
-handling, dependency/toolchain changes affecting those surfaces, and every beta/RC/stable candidate.
-Retain exact-commit or verified-identical-tree evidence. Ordinary deterministic library checks stay
-in required Windows/Linux CI. Before RC, add a maintained hosted workflow with manual,
-affected-change and release triggers, bounded execution and retained artifacts; this manual command
-supplies the beta-stage gate, as agreed in [issue #8](https://github.com/viell-dev/slop-warded-router/issues/8).
+[Leptos fixture](../../.github/workflows/leptos-fixture.yml) runs on Ubuntu 24.04 for affected
+pull requests and pushes to `main`, for unprefixed version tags, and via manual dispatch. See the
+[release procedure](../../docs/release.md#before-rc) for the merge and candidate gates.
+Hosted jobs build from the digest-pinned base and use fresh container storage without shared writable
+volumes. The source archive is read-only. The runner copies reports out as the host user, then
+removes the container. It uploads available evidence on success and failure and retains it for
+14 days. The image is rebuilt from the Dockerfile for each hosted job. Package downloads during
+image and fixture setup are still environment inputs.
 
 The browser environment is Linux over localhost cleartext HTTP/1.1. This establishes one application,
 not all Leptos modes/extractors or framework-wide compatibility. Tower readiness and cancellation,

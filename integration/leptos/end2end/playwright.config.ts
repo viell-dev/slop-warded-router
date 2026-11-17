@@ -1,16 +1,25 @@
 import { devices, defineConfig } from "@playwright/test";
+import { dirname, join } from "node:path";
 
 const mode = process.env.WARDED_FIXTURE_ROUTER;
 if (mode !== "axum" && mode !== "warded") {
   throw new Error("WARDED_FIXTURE_ROUTER must be axum or warded");
 }
-if (!process.env.WARDED_FIXTURE_REPORT) {
-  throw new Error("WARDED_FIXTURE_REPORT must name a fresh JSON report");
+const report = process.env.WARDED_FIXTURE_REPORT;
+const baseURL = process.env.WARDED_FIXTURE_URL;
+const revision = process.env.WARDED_FIXTURE_REVISION;
+const router = process.env.WARDED_FIXTURE_IDENTITY;
+if (!report || !baseURL || !revision || !router) {
+  throw new Error("Run check.sh to provide the report path, live server URL and identity, and source revision");
 }
+const reportDir = dirname(report);
+const httpTests = mode === "axum" ? "common.http.spec.ts" : ["common.http.spec.ts", "warded.http.spec.ts"];
+const browserTests = mode === "axum" ? "common.spec.ts" : ["common.spec.ts", "warded.spec.ts"];
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: mode === "axum" ? "common.spec.ts" : ["common.spec.ts", "warded.spec.ts"],
+  outputDir: join(reportDir, "test-results"),
+  metadata: { revision, router, baseURL },
   timeout: 30000,
   globalTimeout: 240000,
   expect: { timeout: 10000 },
@@ -20,17 +29,19 @@ export default defineConfig({
   workers: 1,
   reporter: [
     ["list"],
-    ["json", { outputFile: process.env.WARDED_FIXTURE_REPORT }],
+    ["json", { outputFile: report }],
+    ["html", { outputFolder: join(reportDir, "playwright-report"), open: "never" }],
   ],
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL,
     actionTimeout: 10000,
     navigationTimeout: 15000,
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    { name: "http", testMatch: httpTests },
+    { name: "chromium", testMatch: browserTests, use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", testMatch: browserTests, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testMatch: browserTests, use: { ...devices["Desktop Safari"] } },
   ],
 });
