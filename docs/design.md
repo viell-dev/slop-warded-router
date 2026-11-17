@@ -123,7 +123,9 @@ no route index, and raw path interpretation and ordered error propagation remain
 Media specificity compares wildcard/type specificity and then the number of applicable parameters;
 `q` is a weight wherever it appears. Media, encoding, and basic filtering ties use offer order.
 Lookup processes positive client ranges by descending weight/client order, completing truncation
-before the next range, and uses a wildcard only as a final default. Zero-quality ranges reject an
+before the next range, and uses a wildcard only as a final default. As in RFC 4647 section 3.4, a
+one-character subtag is removed together with its closest trailing subtag, so `x-a-b-cc` never
+truncates to `x-a`. Zero-quality ranges reject an
 equal or less specific lookup match, retaining explicit exclusions without letting a broad wildcard
 erase a more specific positive preference. Registry validation of server language tags is outside
 the constructor's well-formed-syntax contract.

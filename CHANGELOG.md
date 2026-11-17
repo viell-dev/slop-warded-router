@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove every trailing one-character subtag during language lookup truncation, as RFC 4647
+  section 3.4 requires: `x-a-b-cc` no longer reaches the offer `x-a`, as a match or as an exclusion.
 - Accept escaped literal suffixes after longer ASCII and Unicode path parameter names. Preserve
   declared capture names and raw values while handling matchit 0.9.2's normalization locally.
 - Add a security policy with GitHub private vulnerability reporting as the private route.
