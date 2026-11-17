@@ -1,0 +1,34 @@
+# cargo-deny policy for the library's resolved dependency graph, including dev
+# dependencies. See https://embarkstudios.github.io/cargo-deny/ for each field.
+# The Leptos fixture under integration/ is a separate, unpackaged application
+# and is not covered here.
+
+[graph]
+all-features = true
+
+[advisories]
+# Vulnerability, unmaintained and unsound advisories are errors by default.
+# Yanked crates are errors too. Record a reason with any future ignore entry.
+yanked = "deny"
+ignore = []
+
+[licenses]
+# Licenses found in the resolved graph and compatible with MIT OR Apache-2.0
+# distribution. Add a license only after checking the crate that needs it.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "MIT",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
