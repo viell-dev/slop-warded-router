@@ -1,7 +1,8 @@
 //! Accept-family predicates using existing grammar parsers and explicit selection rules.
 //!
 //! Shared offer sets compute their choice once per immutable [`Head`] and limits.
-//! Parsing, quality syntax, quoting, and encoding negotiation come from `parse-net`.
+//! Parsing, quality syntax, quoting, media-range matching, and encoding negotiation come
+//! from `parse-net`; media precedence and language selection follow Warded's own rules.
 
 use crate::{Captures, DefinitionError, Head, MatchError, MatchResult, Matcher};
 use http::header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, HeaderName};
@@ -42,7 +43,10 @@ impl Limits {
         self.parser = self.parser.max_list_members(count);
         self
     }
-    /// Bound parameters per member; duplicate parameters are always refused.
+    /// Bound parameters per member, counting `q` (default 256).
+    ///
+    /// Duplicate parameters are always refused, and that check also refuses a member with more
+    /// than 64 parameters, so a bound above 64 accepts no more.
     #[must_use]
     pub const fn max_params(mut self, count: u16) -> Self {
         self.parser = self.parser.max_params(count);

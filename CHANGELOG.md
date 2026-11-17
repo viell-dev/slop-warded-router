@@ -21,6 +21,11 @@
 - Document that a present `Accept` or `Accept-Language` field without list members accepts no
   offer, also in strict mode, and that basic filtering weights a tag by its longest matching range.
   These describe existing behavior.
+- Update parse-net from 0.9.3 to 0.10.0, still pinned exactly. Reuse its corrected media-range
+  parameters and matching. Keep Warded's media precedence and language selection, which 0.10.0's
+  own selection does not match in documented edge cases. Selection behavior is unchanged.
+- Document that a negotiation member carries at most 64 parameters, counting `q`, whatever the
+  configured parameter bound. This limit is inherited and unchanged.
 
 ## 0.1.0-beta.1 source candidate
 

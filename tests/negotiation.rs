@@ -164,3 +164,66 @@ fn parser_and_combined_byte_limits_fail_without_choosing_an_offer() {
     let rule = accepts_media_type("text/html").unwrap();
     assert!(!outcome(&rule, "accept", Some(&"a".repeat(65_537))).unwrap());
 }
+
+#[test]
+fn documented_rules_are_kept_where_the_parser_dependency_selects_differently() {
+    // parse-net 0.10.0's own selection gives a different answer in each case.
+    let lookup = LanguageMatching::Lookup;
+    let basic = LanguageMatching::BasicFilter;
+    for (mode, offers, value, expected) in [
+        // A more specific zero-quality range excludes a truncated or wildcard candidate.
+        (lookup, &["en"][..], "en-US,en-GB;q=0", None),
+        (lookup, &["en", "fr"], "*,en-GB;q=0", Some("fr")),
+        // A positive wildcard is a final default, even before lower-priority ranges.
+        (lookup, &["en"], "*;q=0.5,de;q=0.1", Some("en")),
+        (lookup, &["en"], "*,de", Some("en")),
+        // Equal basic-filtering weights keep offer order, not the longer matching range.
+        (basic, &["en", "fr-CA"], "*,fr", Some("en")),
+        (basic, &["en", "fr-CA"], "en,fr-CA", Some("en")),
+    ] {
+        let set = Offers::languages(offers.iter().copied(), mode).unwrap();
+        for offer in offers {
+            assert_eq!(
+                outcome(
+                    &set.selected(offer).unwrap(),
+                    "accept-language",
+                    Some(value)
+                )
+                .unwrap(),
+                expected == Some(*offer),
+                "{mode:?} {value} {offer}"
+            );
+        }
+    }
+}
+
+#[test]
+fn media_precedence_counts_every_parameter_a_member_can_carry() {
+    let parameters = |count: usize| -> String { (0..count).map(|i| format!(";p{i}=v")).collect() };
+    let offer = format!("text/html{}", parameters(64));
+    let rule = accepts_media_type(&offer).unwrap();
+    // The dependency's own specificity stops counting at 63 parameters.
+    for value in [
+        format!(
+            "text/html{};q=0,text/html{}",
+            parameters(63),
+            parameters(64)
+        ),
+        format!(
+            "text/html{},text/html{};q=0",
+            parameters(64),
+            parameters(63)
+        ),
+    ] {
+        assert!(outcome(&rule, "accept", Some(&value)).unwrap(), "{value}");
+    }
+    // Duplicate refusal limits a member to 64 parameters, counting q, whatever the bound.
+    let strict = rule
+        .parser_limits(warded::negotiation::Limits::DEFAULT.max_params(u16::MAX))
+        .invalid_is_error();
+    assert!(outcome(&strict, "accept", Some(&offer)).unwrap());
+    assert!(matches!(
+        outcome(&strict, "accept", Some(&format!("{offer};q=1"))),
+        Err(MatchError::InvalidHeader { .. })
+    ));
+}

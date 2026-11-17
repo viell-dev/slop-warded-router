@@ -28,11 +28,18 @@ capture-free negation. It does not adapt or copy upstream matcher source.
 
 `http` supplies request-head types. `matchit` compiles each path independently: a failed static-path
 candidate cannot suppress a later parameter route. `parse-net` supplies grammar parsing, strict
-quality values, quoting, and identity encoding rules. Alpha.1 counterexamples exposed incorrect
-parameter specificity, loss of parameters following `q`, and lookup priority in its negotiation
-scorer. Alpha.2 retains the grammar parsers and supplies a small media/language selection layer,
-reading all parameters through the existing parameter parser. `oxilangtag` validates concrete
-well-formed server tags independently of client negotiation.
+quality values, quoting, media-range parameters and matching, and identity encoding rules.
+Alpha.1 counterexamples exposed incorrect parameter specificity, loss of parameters following `q`,
+and lookup priority in its 0.9.3 negotiation scorer, so alpha.2 added a small media/language
+selection layer. Version 0.10.0 fixes those reported cases, and its own selection passes the
+retained counterexamples. Warded now reuses its corrected range parameters and matching, but keeps
+its own media precedence and language selection, because 0.10.0 chooses differently in documented
+edge cases: a zero-quality lookup range refuses only an equal offer, lookup counts `*` only as the
+last range in priority, basic filtering breaks equal weights by the longer range, and media
+specificity stops counting at 63 parameters. The lookup and specificity rules are documented
+choices; the basic-filtering tie departs from parse-net's own description, which gives equal
+weights to the earlier offer as Warded does. `oxilangtag` validates concrete well-formed server
+tags independently of client negotiation.
 
 The initial alpha.2 candidate used `language-tags`, whose private-use branch accepted malformed
 subtags. Its own README recommends `oxilangtag` for syntax-only validation. The latter requires no
@@ -40,11 +47,12 @@ registry database or runtime dependencies, parses borrowed tags without allocati
 retained private-use and grandfathered controls. Dependency defects are tracked in the pinned
 [overview](https://github.com/viell-dev/slop-warded-router/issues/4).
 
-The parser dependency is young; its version is pinned, its types are kept out of Warded's public
-API, and upgrades need the retained protocol counterexamples. Reassess the selection workaround
-when a verified upstream release handles them. This avoids maintaining a separate field grammar or
-forking an entire parser to correct selection rules. Warded maps malformed fields to a miss or an
-explicit matching error and inherits no framework 400/406 policy.
+The parser dependency is young and still changes selection answers between releases; its
+version is pinned exactly, its types are kept out of Warded's public API, and upgrades need the
+retained protocol counterexamples and the grammar-guided corpus. Reconsider the local selection
+rules only together with Warded's documented semantics. This avoids maintaining a separate field
+grammar or forking an entire parser to correct selection rules. Warded maps malformed fields to a
+miss or an explicit matching error and inherits no framework 400/406 policy.
 Tower supplies service boxing and readiness-aware `oneshot` dispatch.
 
 These are ordinary dependencies with their original license terms; see Cargo's resolved graph
