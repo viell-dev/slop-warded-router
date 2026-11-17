@@ -23,7 +23,7 @@ negotiation = ["dep:parse-net", "dep:oxilangtag"]
 [dependencies]
 http = "1.5"
 matchit = "0.9.2"
-parse-net = { version = "=0.9.3", optional = true }
+parse-net = { version = "=0.10.0", optional = true }
 oxilangtag = { version = "0.1.6", default-features = false, optional = true }
 tower = { version = "0.5.3", optional = true, features = ["util"] }
 
