@@ -121,14 +121,21 @@ matching/definition/cache consistency checks without copying foreign test bodies
 
 The pinned `leptos_axum` 0.8.10 source was inspected for public SSR/context, server-function routing,
 and file/error handlers before mounting them. Its route-list mode/methods and browser-navigation
-boundary are asserted by the fixture. The matchit 0.9.2 escaped-marker splice remains unchanged;
-retain the capacity regressions and the successful `/{a}{{x}}` workaround control for #13 rather
-than asserting that rejecting a valid longer-name pattern is intended.
+boundary are asserted by the fixture. The matchit 0.9.2 escaped-marker splice remained unchanged
+during beta preparation. Beta.1 retained the capacity regressions and the `/{a}{{x}}` control.
 
 Boolean composition, dispatch readiness/cancellation, QUERY/extensions, malformed language/media
 counterexamples and other raw-path contracts are unchanged by beta preparation. Reuse the earlier
 Warp/Rama/Salvo/matchit comparison and retained failures for those areas. The preparation changes
 tests, consumer evidence and public limits rather than importing another router's API/defaults.
+
+## Escaped suffixes after named parameters
+
+The local fix for [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13) uses the
+existing matchit insertion API. The pinned source above still skips moving a marker at the end
+of a parameter splice. Warded now verifies both `/{id}{{x}}` and `/{é}{{x}}` with their declared
+names, escaped literals around multiple captures, catch-alls and rollback. Name validation still
+uses matchit's parser, including its treatment of doubled braces within a name.
 
 [matchit-match]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/match.rs
 [matchit-insert]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/insert.rs

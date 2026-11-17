@@ -97,9 +97,8 @@ raw strings; parsed values are not stored. The predicate only sees captures from
 wraps, so refine a composition to compare several captures. Underlying errors propagate, and
 missing capture names need an explicit caller policy. A compiled pattern supports up to 25 ordinary
 parameters plus an optional terminal catch-all; excess capacity returns `DefinitionError`.
-With matchit 0.9.2, an escaped literal immediately after a multi-character parameter can be rejected:
-use a one-character name for that shape, such as `/{a}{{x}}`, which matches `/value{x}` and captures
-`a=value`. The inherited limit is tracked in [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13).
+Doubled braces denote literals, including immediately after a parameter. For example, `/{id}{{x}}`
+matches `/value{x}` and captures `id=value`.
 
 ## Optional shortcuts and negotiation
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accept escaped literal suffixes after longer ASCII and Unicode path parameter names. Preserve
+  declared capture names and raw values while handling matchit 0.9.2's normalization locally.
 - Add a security policy with GitHub private vulnerability reporting as the private route.
 - Check RustSec advisories, licenses, wildcard requirements and dependency sources with a pinned,
   checksum-verified cargo-deny in required CI. The current graph passes with no ignored advisories.
@@ -20,7 +22,7 @@ remains disabled; promotion waits for independent review and exact-revision gate
   paths, path-definition boundaries, negotiation limits, miss/error policies and cache consistency.
 - Record a consumer-informed API freeze assessment, reproducible selection/negotiation measurements,
   dependency dispositions, and explicit host/method/raw-query/transport limits.
-- Document the matchit escaped-suffix limitation and its verified one-character-name workaround.
+- Record matchit 0.9.2's escaped-suffix limitation and the verified one-byte ASCII control.
 
 ## 0.1.0-alpha.3 source candidate
 

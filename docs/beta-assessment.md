@@ -104,10 +104,10 @@ report was submitted. matchit's latest listed tag remains 0.9.2. No dependency u
   history. No reason is established to restore the replaced parser or require registry validation.
 - Keep the 25-ordinary-parameter guard, unmatched-closer rejection and the original failed probes.
   Terminal catch-alls remain outside that capacity. Revisit only with tested dependency evidence.
-- [Issue #13](https://github.com/viell-dev/slop-warded-router/issues/13): document the inherited valid
-  escaped-suffix rejection. The verified `/{a}{{x}}` workaround has a positive matching control.
-  This rare configuration limitation is accepted for 0.1; revisit if the workaround fails or a
-  consumer cannot use it. It is not an uncontained panic or a newly established routing vulnerability.
+- Beta.1 documented matchit 0.9.2's rejection of some valid escaped suffixes. The local fix for
+  [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13) preserves the escape
+  marker during insertion and returns the declared capture name. Retain the ASCII and Unicode
+  matching regressions when reconsidering the fix for a future dependency version.
 - Nesting, destination/body/clone bounds and definition diagnostics retain the API decisions above;
   change only for demonstrated consumer needs, without advertising broader support first.
 - Contain the prototype cargo-leptos cleanup problem by starting/supervising the binary directly;

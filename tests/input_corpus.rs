@@ -122,6 +122,32 @@ fn seeded_raw_headers_queries_and_compiled_paths_preserve_their_contracts() {
 }
 
 #[test]
+fn compiled_path_controls_hit_and_preserve_raw_captures() {
+    let controls = [
+        ("/fixed", "/fixed?ignored=1", &[][..]),
+        (
+            "/items/{*tail}",
+            "/items/nested/raw%2Fpart",
+            &[("tail", "nested/raw%2Fpart")][..],
+        ),
+        (
+            "/{left}/{right}",
+            "/left+value/right%2Fvalue",
+            &[("left", "left+value"), ("right", "right%2Fvalue")][..],
+        ),
+    ];
+    for (pattern, uri, expected) in controls {
+        let request = Request::builder().uri(uri).body(()).unwrap();
+        let captures = path(pattern)
+            .unwrap()
+            .evaluate(&Head::from_request(&request))
+            .unwrap()
+            .unwrap();
+        assert_eq!(captures.iter().collect::<Vec<_>>(), expected, "{pattern}");
+    }
+}
+
+#[test]
 fn generated_pattern_boundaries_return_a_matcher_or_definition_error() {
     let mut generator = Generator(SEED);
     for case in 0..1024 {
@@ -130,7 +156,11 @@ fn generated_pattern_boundaries_return_a_matcher_or_definition_error() {
             .map(|index| format!("/{{parameter{index}}}"))
             .collect();
         let suffix = generator.text(b"{}ab/*", 32);
-        let pattern = format!("/{prefix}{suffix}");
+        let pattern = if prefix.is_empty() {
+            format!("/{suffix}")
+        } else {
+            format!("{prefix}{suffix}")
+        };
         let outcome = catch_unwind(|| path(&pattern));
         assert!(
             outcome.is_ok(),
@@ -144,8 +174,7 @@ fn generated_pattern_boundaries_return_a_matcher_or_definition_error() {
             );
         }
     }
-    // Verified configuration workaround for dependency issue #13. Do not turn
-    // the valid longer-name pattern's rejection into an intended contract.
+    // The one-byte name is the control for the escaped-suffix regressions.
     let matcher = path("/{a}{{x}}").unwrap();
     let request = Request::builder().uri("/value{x}").body(()).unwrap();
     assert_eq!(
@@ -156,6 +185,36 @@ fn generated_pattern_boundaries_return_a_matcher_or_definition_error() {
             .get("a"),
         Some("value")
     );
+}
+
+#[test]
+fn ordinary_parameter_boundaries_match_up_to_capacity() {
+    for count in [24, 25, 26] {
+        let pattern: String = (0..count)
+            .map(|index| format!("/{{parameter{index}}}"))
+            .collect();
+        if count == 26 {
+            let error: warded::DefinitionError = path(pattern).expect_err("26 parameters");
+            assert!(error.to_string().contains("at most 25"));
+            continue;
+        }
+        let uri: String = (0..count)
+            .map(|index| format!("/value{index}%2Fraw"))
+            .collect();
+        let request = Request::builder().uri(uri).body(()).unwrap();
+        let captures = path(pattern)
+            .unwrap()
+            .evaluate(&Head::from_request(&request))
+            .unwrap()
+            .unwrap();
+        assert_eq!(captures.iter().count(), count);
+        for index in 0..count {
+            assert_eq!(
+                captures.get(&format!("parameter{index}")),
+                Some(format!("value{index}%2Fraw").as_str())
+            );
+        }
+    }
 }
 
 #[cfg(feature = "negotiation")]
