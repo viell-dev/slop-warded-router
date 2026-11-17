@@ -1,16 +1,12 @@
 name: Leptos fixture
 
+# Pull requests always run the cheap `changes` and `leptos-fixture` jobs so that
+# `leptos-fixture` can be a required check; the expensive fixture job runs only
+# when an affected path changed. Pushes to main use the same paths as filters.
+# Tag pushes ignore path filters, so every version tag runs the fixture.
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '.cargo/**'
-      - 'rust-toolchain.toml'
-      - 'integration/leptos/**'
-      - '.github/workflows/leptos-fixture.yml'
   push:
     branches: [main]
     tags:
@@ -18,11 +14,11 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+-*'
     paths:
       - 'src/**'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
+      - 'Cargo.toml'
       - '.cargo/**'
       - 'rust-toolchain.toml'
       - 'integration/leptos/**'
+      - '!integration/leptos/**/*.md'
       - '.github/workflows/leptos-fixture.yml'
   workflow_dispatch:
 
@@ -35,11 +31,49 @@ defaults:
 
 concurrency:
   group: leptos-fixture-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep every main push and tag run so each integrated commit has evidence.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      affected: ${{ steps.paths.outputs.affected }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Detect fixture-affecting changes
+        id: paths
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" != pull_request ]]; then
+            echo "affected=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # HEAD is the PR merge commit; its first parent is the base it merges into.
+          # Keep this list equal to the push path filters above. The fixture has its
+          # own lockfile, so the library's Cargo.lock does not affect it.
+          changed="$(git diff --name-only HEAD^1 HEAD)"
+          printf '%s\n' "$changed"
+          affected=false
+          while IFS= read -r file; do
+            [[ -z "$file" || "$file" =~ ^integration/leptos/.*\.md$ ]] && continue
+            if [[ "$file" =~ ^(src/|\.cargo/|integration/leptos/) ||
+                  "$file" =~ ^(Cargo\.toml|rust-toolchain\.toml|\.github/workflows/leptos-fixture\.yml)$ ]]; then
+              affected=true
+            fi
+          done <<<"$changed"
+          echo "affected=$affected" | tee -a "$GITHUB_OUTPUT"
+
   fixture:
     name: Linux HTTP and browser fixture
+    needs: changes
+    if: needs.changes.outputs.affected == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -48,10 +82,16 @@ jobs:
           persist-credentials: false
       - name: Export exact source and build the fixture image
         timeout-minutes: 20
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           evidence="$RUNNER_TEMP/warded-fixture-evidence"
           mkdir "$evidence"
           git rev-parse HEAD | tee "$evidence/commit.txt"
+          if [[ -n "$PR_HEAD_SHA" ]]; then
+            printf 'head=%s\nbase=%s\n' "$PR_HEAD_SHA" "$PR_BASE_SHA" | tee "$evidence/pull-request.txt"
+          fi
           git rev-parse 'HEAD^{tree}' | tee "$evidence/tree.txt"
           git archive --format=tar --output="$RUNNER_TEMP/warded-fixture-source.tar" HEAD
           sha256sum "$RUNNER_TEMP/warded-fixture-source.tar" | tee "$evidence/archive-sha256.txt"
@@ -99,3 +139,24 @@ jobs:
           path: ${{ runner.temp }}/warded-fixture-evidence
           if-no-files-found: error
           retention-days: 14
+
+  # The required check. It fails unless change detection succeeded and the
+  # fixture either passed or was skipped because nothing it uses changed.
+  leptos-fixture:
+    if: always()
+    needs: [changes, fixture]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require the fixture when affected
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          AFFECTED: ${{ needs.changes.outputs.affected }}
+          FIXTURE_RESULT: ${{ needs.fixture.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [[ "$AFFECTED" == true ]]; then
+            test "$FIXTURE_RESULT" = success
+          else
+            test "$FIXTURE_RESULT" = skipped
+          fi

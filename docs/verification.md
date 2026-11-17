@@ -70,8 +70,9 @@ Linux over localhost HTTP/1.1. Axum needs 3 Node HTTP-client passes and 5 browse
 Warded needs 5 HTTP-client passes and 6 browser passes per engine. The broken ID predicate must
 produce one specific failure in each of Chromium, Firefox and WebKit with no HTTP-client cases.
 The runner checks the live server identity, binds reports to the exact source and verifies cleanup
-after a forced failure. The hosted and local commands run the same suite with separate purposes
-from required Windows/Linux library CI and human release testing.
+after a forced failure. Hosted and local runs execute the same suite. It does not replace the
+required Windows/Linux library CI or human release testing. On pull requests the required
+`leptos-fixture` check runs the suite when the fixture's inputs change.
 
 ## Alpha.2 regression and cost probes
 
