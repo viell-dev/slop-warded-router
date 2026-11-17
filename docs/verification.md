@@ -64,11 +64,12 @@ refinement dispatch check, which needs Tower.
 boundaries, plus Accept-family malformed/policy/cache/limit checks. Seed and failing input are
 reported for generated cases. Path controls assert static, catch-all and two-capture hits, preserve
 the one-byte escaped-suffix case, and verify the 24, 25 and 26 ordinary-parameter boundaries.
-Grammar-guided valid Accept-family fields compare every preferred and acceptable offer with an
-independent oracle, at default and exactly sufficient bounds, and require a refusal one below each
-bound. Absent, empty, standalone and repeated-field controls are separate. Its eight test groups
-run in required CI (four without negotiation); the negotiation groups print per-configuration
-winner, miss and strict-refusal yields with `-- --nocapture`.
+Grammar-guided valid Accept-family fields compare every decided preferred and acceptable offer
+with an independent oracle, at default and exactly sufficient bounds, and require every predicate
+to refuse one below each bound. Absent, empty, standalone and repeated-field controls are separate,
+including 16 accepted and 17 refused empty elements. Its eight test groups run in required CI
+(four without negotiation); the negotiation groups print per-configuration winner, miss,
+strict-refusal and undecided yields with `-- --nocapture`.
 
 The representative [Leptos fixture](../integration/leptos/README.md) runs with Axum and Warded on
 Linux over localhost HTTP/1.1. Axum needs 3 Node HTTP-client passes and 5 browser passes per engine.

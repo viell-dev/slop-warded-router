@@ -17,10 +17,11 @@
 - Add grammar-guided valid Accept, Accept-Language and Accept-Encoding corpus cases whose preferred
   and acceptable offers come from an independent oracle written from RFC 9110, RFC 4647 and the
   documented rules. Separate absent, empty, standalone and repeated-field controls, and report
-  per-configuration winner, miss and refusal yields.
-- Document that a present `Accept` or `Accept-Language` field without list members accepts no
-  offer, also in strict mode, and that basic filtering weights a tag by its longest matching range.
-  These describe existing behavior.
+  per-configuration winner, miss, refusal and undecided yields.
+- Document existing behavior: a present `Accept` or `Accept-Language` field that parses as a list
+  without members accepts no offer, also in strict mode; empty list elements, including combined
+  empty lines, are limited to 16; basic filtering weights a tag by its longest matching range; and
+  a positive `Accept-Encoding` wildcard weight also applies to an unlisted `identity`.
 - Update parse-net from 0.9.3 to 0.10.0, still pinned exactly. Reuse its corrected media-range
   parameters and matching. Keep Warded's media precedence and language selection, which 0.10.0's
   own selection does not match in documented edge cases. Selection behavior is unchanged.
