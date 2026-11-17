@@ -72,7 +72,9 @@ are retained in the independent `experiment-path-constraints` branch and issue #
 
 Construction rejects duplicate decoded names, unmatched closing braces and more than 25 ordinary
 parameters before calling matchit. Version 0.9.2 panics while normalizing the 26th ordinary
-parameter. A terminal catch-all does not consume ordinary-parameter capacity.
+parameter. A terminal catch-all does not consume ordinary-parameter capacity. The closing-brace
+check first contained the escape-marker defect below; after its repair it is defence in depth.
+Definition errors from matchit are prefixed with the declared pattern.
 
 matchit 0.9.2 can lose the escape marker for a literal opener immediately after a parameter
 when normalization changes the parameter's byte length. Warded validates the affected names with

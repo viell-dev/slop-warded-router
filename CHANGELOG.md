@@ -22,7 +22,8 @@ remains disabled; promotion waits for independent review and exact-revision gate
   paths, path-definition boundaries, negotiation limits, miss/error policies and cache consistency.
 - Record a consumer-informed API freeze assessment, reproducible selection/negotiation measurements,
   dependency dispositions, and explicit host/method/raw-query/transport limits.
-- Record matchit 0.9.2's escaped-suffix limitation and the verified one-byte ASCII control.
+- Document matchit 0.9.2's escaped-suffix limitation and its verified one-byte ASCII-name
+  workaround.
 
 ## 0.1.0-alpha.3 source candidate
 
