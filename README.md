@@ -148,11 +148,15 @@ Language helpers take an explicit choice: lookup can select `fr` for `fr-CA`, wh
 can select `fr-CA` for `fr`. Lookup tries client ranges by descending weight, retaining client order
 for ties, and finishes each range's fallback before the next range. Wildcards provide a default
 after explicit ranges. An equally or more specific zero-quality lookup range excludes a candidate;
-a broader exclusion does not override an explicit positive match. Media, encoding, and basic
-filtering ties use server offer order. Absent fields impose no preference; an offer set chooses its
-first offer. No acceptable offer means a miss, so application defaults need their own final route.
+a broader exclusion does not override an explicit positive match. Basic filtering weights a tag by
+its longest matching range. Media, encoding, and basic filtering ties use server offer order.
+Absent fields impose no preference; an offer set chooses its first offer. A present `Accept` or
+`Accept-Language` field without list members, such as an empty value, accepts no offer: it misses,
+including with `invalid_is_error`, because it is not malformed. No acceptable offer means a miss,
+so application defaults need their own final route.
 
-Encoding helpers account for identity and absent/empty field differences. Malformed input ordinarily
+Encoding helpers account for identity and absent/empty field differences: an empty
+`Accept-Encoding` accepts only `identity`. Malformed input ordinarily
 misses; `invalid_is_error` exposes a parser diagnostic. Negating a malformed-as-miss helper matches
 malformed input; choose strict errors when that is inappropriate. Nothing automatically enables
 400, 405, or 406 responses. Apply

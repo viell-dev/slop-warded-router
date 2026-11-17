@@ -49,11 +49,17 @@ cancellation and QUERY/custom-method evidence without duplicating them in the br
 
 The deterministic [`input_corpus.rs`](../tests/input_corpus.rs) runs in ordinary required CI.
 Seed `0x7761726465640001` covers 1024 raw-header/query/path cases, 1024 definition-boundary cases,
-512 Accept-family cases across media, encoding and both language modes, and generated valid
+512 raw Accept-family cases across media, encoding and both language modes, and generated valid
 member/parameter boundaries. Assertions check raw captures, repetition/presence, untouched encoded
 values, error versus miss policy, field bounds including repeated-field separators, unique winners,
-and cached versus fresh/cloned-head results. Panics fail with the input and seed. This supplements
-protocol examples; it is neither an exhaustive parser oracle nor coverage-guided fuzzing.
+and cached versus fresh/cloned-head results. Panics fail with the input and seed. Seed
+`0x7761726465640002` adds 256 grammar-guided valid fields for each of the four negotiation
+configurations. Each is rendered with equivalent syntax variants, standalone and split across two
+lines, and its preferred and acceptable offers come from a small structural oracle written from
+RFC 9110, RFC 4647 and the documented rules, not from the selection code. Cases those sources
+leave undecided are redrawn. Separate controls cover absent, empty and repeated fields. This
+supplements protocol examples; it is neither an exhaustive parser oracle nor coverage-guided
+fuzzing.
 
 ## Selection-cost decision
 
