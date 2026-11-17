@@ -103,15 +103,18 @@ fn basic_matches(range: &[u8], offer: &[u8]) -> bool {
             && offer[..range.len()].eq_ignore_ascii_case(range))
 }
 
+// RFC 4647 section 3.4: a single-letter or digit subtag is removed together with
+// its closest trailing subtag, so no truncation ends in one. Consecutive
+// singletons (`x-a-b-cc`) are all removed in the same step.
 fn truncate(range: &[u8]) -> Option<&[u8]> {
     let cut = range.iter().rposition(|&b| b == b'-')?;
     let mut shorter = &range[..cut];
-    if let Some(dash) = shorter.iter().rposition(|&b| b == b'-')
+    while let Some(dash) = shorter.iter().rposition(|&b| b == b'-')
         && shorter.len() - dash == 2
     {
         shorter = &shorter[..dash];
     }
-    Some(shorter)
+    (shorter.len() > 1).then_some(shorter)
 }
 
 // Rank is used only for zero-quality exclusions. Positive lookup preferences
