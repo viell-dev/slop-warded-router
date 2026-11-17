@@ -124,8 +124,10 @@ Combinators evaluate left to right and errors stop selection. Scope strict check
 `secured().and(exact_path("/admin"))` errors there if context is missing. Explicitly mapping an
 unknown value to a miss also means negating that predicate matches the unknown value.
 
-Negotiation reuses `parse-net` grammar and encoding negotiation, plus `oxilangtag` for
-well-formed server tags. Warded supplies media precedence and language selection rules.
+Negotiation reuses `parse-net` grammar, media-range matching and encoding negotiation, plus
+`oxilangtag` for well-formed server tags. Warded supplies media precedence and language selection
+rules; parse-net's own selection differs from them in the edge cases listed in the
+[design notes](./docs/design.md#existing-work-and-dependency-choices).
 `accepts_media_type("application/json")?` tests
 whether one representation is acceptable. To respect preference among several representations,
 declare the same complete offer set for each alternative:
@@ -165,7 +167,8 @@ responses or set their metadata.
 
 Shared offer sets cache their complete choice within one immutable `Head`, keyed by set identity
 and every configured limit. `negotiation::Limits` controls list members, parameters, and combined
-field bytes; the combined-field default is 64 KiB. Independent sets still perform independent
+field bytes; the combined-field default is 64 KiB. A member carries at most 64 parameters,
+counting `q`, whatever the parameter bound. Independent sets still perform independent
 negotiation. `Head` is
 cloneable rather than `Copy`; a clone starts a fresh cache.
 Selection scans routes linearly. Put applicable cheap conditions before negotiation, use shared

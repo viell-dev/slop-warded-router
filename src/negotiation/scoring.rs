@@ -1,4 +1,9 @@
 //! Selection rules layered over existing grammar parsers, not a field parser.
+//!
+//! parse-net's own media and language selection differs from Warded's documented rules in
+//! the cases noted below, so only its parsing and range matching are reused here. Its
+//! language lookup refuses only an offer equal to a `q=0` range and counts `*` only as the
+//! last range in priority; its basic filtering breaks equal weights by range length.
 
 use super::{Choice, LanguageMatching};
 use parse_net::{
@@ -6,64 +11,13 @@ use parse_net::{
     negotiate::{MalformedPolicy, Negotiator, Outcome, parse_weighted},
 };
 
-struct MediaRange<'a> {
-    kind: u8,
-    type_: &'a [u8],
-    subtype: &'a [u8],
-    params: Vec<(&'a [u8], Vec<u8>)>,
-    quality: u16,
-}
-
-fn range<'a>(value: &'a [u8], limits: &Limits) -> Result<MediaRange<'a>, String> {
-    let parsed = media::parse_range(value, limits).map_err(|e| e.to_string())?;
-    // The grammar parser validates the whole member. Read all parameters with
-    // its parameter parser because parse_range exposes only those before q.
-    let start = value.iter().position(|&b| b == b';').unwrap_or(value.len());
-    let (params, _) =
-        parse_net::param::parse(&value[start..], limits).map_err(|e| e.to_string())?;
-    let mut concrete = Vec::new();
-    for param in params.iter().filter(|p| !p.name.eq_ignore_ascii_case(b"q")) {
-        let mut decoded = vec![0; param.value.len()];
-        param
-            .value
-            .unescape_into(&mut decoded)
-            .map_err(|e| e.to_string())?;
-        concrete.push((param.name, decoded));
-    }
-    Ok(MediaRange {
-        kind: if parsed.type_() == b"*" {
-            0
-        } else if parsed.subtype() == b"*" {
-            1
-        } else {
-            2
-        },
-        type_: parsed.type_(),
-        subtype: parsed.subtype(),
-        params: concrete,
-        quality: parsed.weight().thousandths(),
-    })
-}
-
-impl MediaRange<'_> {
-    fn matches(&self, offer: &media::MediaType<'_>) -> bool {
-        (self.type_ == b"*" || self.type_.eq_ignore_ascii_case(offer.type_()))
-            && (self.subtype == b"*" || self.subtype.eq_ignore_ascii_case(offer.subtype()))
-            && self.params.iter().all(|(name, value)| {
-                offer
-                    .params()
-                    .iter()
-                    .find(|param| param.name.eq_ignore_ascii_case(name))
-                    .is_some_and(|param| {
-                        let actual = param.value;
-                        if name.eq_ignore_ascii_case(b"charset") {
-                            actual.eq_ignore_ascii_case(value)
-                        } else {
-                            actual.eq_bytes(value)
-                        }
-                    })
-            })
-    }
+/// Wildcard/type specificity, then the number of parameters other than `q`.
+///
+/// `MediaRange::specificity` has the same order but stops counting at 63 parameters, while a
+/// member may carry 64: ranges of 63 and 64 parameters would tie and the earlier would apply.
+fn specificity(range: &media::MediaRange<'_>) -> (u8, usize) {
+    let kind = u8::from(range.type_() != b"*") + u8::from(range.subtype() != b"*");
+    (kind, range.params().len())
 }
 
 pub(super) fn media(value: Option<&[u8]>, offers: &[&str], limits: Limits) -> Choice {
@@ -71,18 +25,20 @@ pub(super) fn media(value: Option<&[u8]>, offers: &[&str], limits: Limits) -> Ch
         return Ok((!offers.is_empty()).then_some(0));
     };
     let list = parse_net::list::parse(value, &limits).map_err(|e| e.to_string())?;
+    // parse-net reads parameters on either side of `q` and compares them with an offer's
+    // (names and charset values without case, other values exactly after unquoting).
     let ranges = list
         .iter()
-        .map(|member| range(member, &limits))
+        .map(|member| media::parse_range(member, &limits).map_err(|e| e.to_string()))
         .collect::<Result<Vec<_>, _>>()?;
     let mut chosen = None;
     for (index, offer) in offers.iter().enumerate() {
         let offer = media::parse(offer.as_bytes(), &Limits::DEFAULT).map_err(|e| e.to_string())?;
         let mut best = None;
         for range in &ranges {
-            let specificity = (range.kind, range.params.len());
+            let specificity = specificity(range);
             if range.matches(&offer) && best.is_none_or(|(rank, _)| specificity > rank) {
-                best = Some((specificity, range.quality));
+                best = Some((specificity, range.weight().thousandths()));
             }
         }
         if let Some((_, quality)) = best

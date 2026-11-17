@@ -102,8 +102,12 @@ maintained mitigations. During this preparation, both existing upstream reports 
 no comments; no acceptance of further agent-authored submissions is inferred and no new upstream
 report was submitted. matchit's latest listed tag remains 0.9.2. No dependency upgrade is bundled.
 
-- Keep the exact parse-net 0.9.3 pin, Warded scoring and retained protocol counterexamples. Retest a
-  proposed update before relaxing the pin or removing the workaround. Independent offer sets still
+- Keep an exact parse-net pin, Warded scoring and retained protocol counterexamples. Beta.1 pinned
+  0.9.3. After beta.1, the maintainer fixed and closed the first report in 0.10.0; its own selection
+  passes the retained counterexamples, but differs from the documented language rules and media
+  precedence in edge cases recorded in the [design notes](./design.md). The unreleased source pins
+  0.10.0 and reuses its media-range matching, with no selection behavior change. Retest a proposed
+  update with the counterexamples and corpus before relaxing the pin. Independent offer sets still
   parse independently; the cost is documented above. The unsupported token control remains absent.
 - Keep oxilangtag syntax validation, private-use/grandfathered controls and the language-tags defect
   history. No reason is established to restore the replaced parser or require registry validation.

@@ -230,9 +230,9 @@ checksum = "5d3b4eb570abd4a1dcb062c31fd37b832264d9dc7292c3e69acfe926c87b063f"
 
 [[package]]
 name = "parse-net"
-version = "0.9.3"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ce7087f365226e8aa51334ae75dfa17b8081741a8e646219c3d723916851726"
+checksum = "46af72ca542875f3c639b2130d9b19436de7796b7e156155d8ef11cc7dea25bc"
 
 [[package]]
 name = "percent-encoding"
