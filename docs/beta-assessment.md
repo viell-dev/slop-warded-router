@@ -75,9 +75,10 @@ cache. Three warmups precede 1000 path selections or 20 negotiation selections. 
 - Small fields of 239–257 bytes and near-bound fields of 61,379–61,397 bytes, within the default
   64 KiB and 1024-member limits.
 
-The exact CSV records diagnostic means from Cargo's optimized benchmark profile. These samples
-support the API decision below. The earlier alpha.2 shared-offer probe used a smaller input and
-measured a different workload.
+The exact CSV records diagnostic means from Cargo's optimized benchmark profile. The beta.2
+promotion PR records the refreshed CSV from the final candidate archive, including the source and
+environment identifiers. These samples support the API decision below. The earlier alpha.2
+shared-offer probe used a smaller input and measured a different workload.
 
 **Decision:** no indexing-driven API change is needed for the scoped first release. Linear path
 selection has a documented cost; repeated negotiation dominates the measured adverse case. Keep
@@ -144,13 +145,11 @@ The [dependency overview](https://github.com/viell-dev/slop-warded-router/issues
 maintained mitigations, upstream reports and reconsideration triggers. The
 [upstream-test comparison](./upstream-tests.md) records the affected cases and pinned sources.
 
-- Keep an exact parse-net pin, Warded scoring and retained protocol counterexamples. Beta.1 pinned
-  0.9.3. After beta.1, the maintainer fixed and closed the first report in 0.10.0; its own selection
-  passes the retained counterexamples, but differs from the documented language rules and media
-  precedence in edge cases recorded in the [design notes](./design.md). The unreleased source pins
-  0.10.0 and reuses its media-range matching, with no selection behavior change. Retest a proposed
-  update with the counterexamples and corpus before relaxing the pin. Independent offer sets still
-  parse independently; the cost is documented above. The unsupported token control remains absent.
+- Keep an exact parse-net pin, Warded scoring and retained protocol counterexamples. Beta.2 pins
+  0.10.0 and reuses its media-range matching. Warded keeps local language rules and media precedence
+  for the compatibility cases in the [design notes](./design.md). Retest updates with the
+  counterexamples and corpus before relaxing the pin. Independent offer sets still parse
+  independently, with the cost documented above.
 - Keep oxilangtag syntax validation, private-use/grandfathered controls and the language-tags defect
   history. No reason is established to restore the replaced parser or require registry validation.
 - Keep the 25-ordinary-parameter guard, unmatched-closer rejection and the original failed probes.

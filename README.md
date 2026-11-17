@@ -4,7 +4,7 @@ A Rust router that selects a service using the complete declared conditions on t
 method, path, headers, query, HTTP version, and trusted HTTPS context. A route need not constrain
 the path. Selection and service execution are separate.
 
-**Source beta.** `0.1.0-beta.1` is available as git source. Beta maintenance follows the
+**Source beta.** `0.1.0-beta.2` is available as git source. Beta maintenance follows the
 [agreed first-release goal](https://github.com/viell-dev/slop-warded-router/issues/8). Warded selects
 and dispatches requests inside an application's HTTP host.
 
@@ -32,9 +32,8 @@ warded = { git = "https://github.com/viell-dev/slop-warded-router", rev = "<full
 
 Get the SHA with `git rev-parse HEAD` in the checkout you tested. Run `cargo build` to resolve
 the dependency, then use `cargo build --locked` to reuse the resolved graph. To update, change
-`rev` and run `cargo update --workspace`. To remove Warded,
-delete the dependency and its uses, then update the lockfile. Restore a tested `rev` and update
-the lockfile again to recover.
+`rev` and run `cargo update --workspace`. To remove Warded, delete the dependency and its uses,
+then update the lockfile. Restore a tested `rev` and update the lockfile again to recover.
 
 ## Match and select
 
@@ -160,19 +159,16 @@ No acceptable offer means a miss, so application defaults need their own final r
 
 Encoding helpers account for identity and absent/empty field differences: an empty
 `Accept-Encoding` accepts only `identity`, and a positive `*` weight also applies to an unlisted
-`identity`. Malformed input ordinarily
-misses; `invalid_is_error` exposes a parser diagnostic. Negating a malformed-as-miss helper matches
-malformed input; choose strict errors when that is inappropriate. Nothing automatically enables
-400, 405, or 406 responses. Apply
-appropriate `Vary` or cache-control middleware around successes and fallbacks; helpers do not encode
-responses or set their metadata.
+`identity`. Malformed input ordinarily misses, while `invalid_is_error` exposes a parser
+diagnostic. Negating a malformed-as-miss helper matches malformed input. Choose strict errors
+when that is inappropriate. The host owns 400, 405 and 406 policy, response encoding and metadata.
+Apply appropriate `Vary` or cache-control middleware around successes and fallbacks.
 
 Shared offer sets cache their complete choice within one immutable `Head`, keyed by set identity
 and every configured limit. `negotiation::Limits` controls list members, parameters, and combined
 field bytes; the combined-field default is 64 KiB. A member carries at most 64 parameters,
 counting `q`, whatever the parameter bound. Independent sets still perform independent
-negotiation. `Head` is
-cloneable rather than `Copy`; a clone starts a fresh cache.
+negotiation. Cloning a `Head` starts a fresh cache.
 Selection scans routes linearly. Put applicable cheap conditions before negotiation, use shared
 offers only when their applicability is genuinely shared, and set field limits appropriate to the
 application. Near-limit fields across many independent predicates can be expensive; see the
