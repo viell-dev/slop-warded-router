@@ -70,14 +70,15 @@ composition without introducing typed capture storage or another path grammar. C
 callbacks remain usable with `Selector`. The predicate/newtype/regex comparison and measurements
 are retained in the independent `experiment-path-constraints` branch and issue #9.
 
-Construction preflights decoded names and ordinary-parameter capacity before calling matchit.
-Version 0.9.2 panics while normalizing the 26th ordinary parameter; Warded instead returns a
-definition error. A terminal catch-all is not normalized and does not count toward the 25-parameter
-limit. Unmatched closing braces are rejected before dependency normalization: matchit can lose an
-escaped opener's marker at a parameter splice boundary, exposing an extra parameter from an invalid
-suffix. matchit still validates the full pattern grammar. Escaped braces and affixed parameters
-retain their existing meaning, with an inherited escaped-adjacency limit: `/{id}{{x}}` is rejected
-by matchit 0.9.2, while the verified one-character-name workaround `/{a}{{x}}` matches `/value{x}`.
+Construction rejects duplicate decoded names, unmatched closing braces and more than 25 ordinary
+parameters before calling matchit. Version 0.9.2 panics while normalizing the 26th ordinary
+parameter. A terminal catch-all does not consume ordinary-parameter capacity.
+
+matchit 0.9.2 can lose the escape marker for a literal opener immediately after a parameter
+when normalization changes the parameter's byte length. Warded validates the affected names with
+matchit, inserts a one-byte name at each affected position and restores the declared names in
+captures. matchit still validates the complete pattern. For example, `/{id}{{x}}` matches
+`/value{x}` with `id=value`. Unicode names and raw capture values retain their original meaning.
 See [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13). Remove or revise the
 capacity guard only after a tested upstream change.
 

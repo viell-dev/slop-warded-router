@@ -53,6 +53,8 @@ through the ordinary feature matrix; the two dispatch/hosting cases require the 
 
 `path_capacity.rs` checks fallible construction at the ordinary-parameter boundary, including
 escaped names, literal braces, affixes, and a catch-all beyond 25 ordinary parameters.
+`path_escaped_suffix.rs` checks literal braces around captures, longer ASCII and Unicode names,
+catch-all matching, raw values, definition errors, misses and capture rollback.
 `refinement.rs` checks predicate/newtype alternatives, raw values and overflow, discarded captures,
 ordered overlaps, error/lazy evaluation, conditional trait bounds, cross-thread selection, and
 selected-service failure without retry. These tests run without default features except the
@@ -60,8 +62,8 @@ refinement dispatch check, which needs Tower.
 
 `input_corpus.rs` adds deterministic generated raw header/query/path inputs and path-definition
 boundaries, plus Accept-family malformed/policy/cache/limit checks. Seed and failing input are
-reported; panics fail the test. Its four test groups run in required CI (two without negotiation).
-The verified one-character-name escaped-suffix control covers the documented dependency workaround.
+reported for generated cases. Path controls assert static, catch-all and two-capture hits, preserve
+the one-byte escaped-suffix case, and verify the 24, 25 and 26 ordinary-parameter boundaries.
 
 Run `bash integration/leptos/check.sh` in the provisioned Linux Docker image for the representative
 application; its [README](../integration/leptos/README.md) gives exact container commands, triggers,

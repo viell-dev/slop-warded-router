@@ -103,7 +103,8 @@ impl Matcher for ExactPath {
 /// A compiled path pattern, evaluated independently of all other route patterns.
 #[derive(Clone, Debug)]
 pub struct PathMatcher {
-    router: matchit::Router<()>,
+    // Each replacement is indexed by its position in matchit's parameter list.
+    router: matchit::Router<Box<[(usize, String)]>>,
 }
 impl Matcher for PathMatcher {
     fn evaluate(&self, head: &Head<'_>) -> MatchResult {
@@ -111,8 +112,18 @@ impl Matcher for PathMatcher {
             return Ok(None);
         };
         let mut captures = Captures::default();
-        for (name, value) in found.params.iter() {
-            captures.insert(name, value)?;
+        if found.value.is_empty() {
+            for (name, value) in found.params.iter() {
+                captures.insert(name, value)?;
+            }
+        } else {
+            let mut names = found.value.iter().peekable();
+            for (index, (name, value)) in found.params.iter().enumerate() {
+                let name = names
+                    .next_if(|(position, _)| *position == index)
+                    .map_or(name, |(_, declared)| declared.as_str());
+                captures.insert(name, value)?;
+            }
         }
         Ok(Some(captures))
     }
@@ -121,6 +132,7 @@ impl Matcher for PathMatcher {
 ///
 /// Each route has its own pattern lookup, so static-path precedence cannot hide
 /// a later overlapping candidate. Captures retain their raw percent encoding.
+/// Doubled braces denote literals, including in a suffix after a parameter.
 /// At most 25 ordinary named parameters are supported; a terminal catch-all does
 /// not count toward that limit. Excess capacity returns a definition error.
 pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> {
@@ -133,22 +145,23 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
     // Preflight before insertion: matchit 0.9.2's normalize_params panics on its
     // 26th ordinary parameter. Catch-alls are not normalized. Revisit this guard
     // when adopting an upstream version that returns an error or lifts the limit.
-    // Reject unmatched closers too: matchit's splice can lose an escaped opener
-    // at a normalized parameter's end boundary and expose another parameter.
-    // The scan also compares decoded capture names; either brace can be doubled.
-    // matchit remains responsible for validating the complete pattern grammar.
+    // Check decoded capture names and unmatched closers on the declared pattern.
+    // matchit remains responsible for validating the name and pattern grammar.
     let mut names = BTreeSet::new();
     let mut ordinary_parameters = 0;
-    let mut chars = pattern.chars().peekable();
-    let mut capture: Option<String> = None;
-    while let Some(character) = chars.next() {
-        let escaped = matches!(character, '{' | '}') && chars.peek() == Some(&character);
+    let mut chars = pattern.char_indices().peekable();
+    let mut capture: Option<(usize, String)> = None;
+    let mut repairs = Vec::new();
+    while let Some((offset, character)) = chars.next() {
+        let escaped = matches!(character, '{' | '}')
+            && chars.peek().is_some_and(|&(_, next)| next == character);
         if escaped {
             chars.next();
         }
         match (capture.as_mut(), character, escaped) {
-            (Some(name), '}', false) => {
-                if !name.starts_with('*') {
+            (Some((start, name)), '}', false) => {
+                let catch_all = name.starts_with('*');
+                if !catch_all {
                     ordinary_parameters += 1;
                     if ordinary_parameters > 25 {
                         return Err(DefinitionError(
@@ -160,10 +173,16 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
                 if !names.insert(name.clone()) {
                     return Err(DefinitionError(format!("duplicate capture name: {name}")));
                 }
+                let end = offset + 1;
+                // In matchit 0.9.2, a length-changing splice fails to move an
+                // escaped opener exactly at the end of the parameter.
+                if !catch_all && name.len() != 1 && pattern[end..].starts_with("{{") {
+                    repairs.push((*start..end, names.len() - 1, name));
+                }
                 capture = None;
             }
-            (Some(name), character, _) => name.push(character),
-            (None, '{', false) => capture = Some(String::new()),
+            (Some((_, name)), character, _) => name.push(character),
+            (None, '{', false) => capture = Some((offset, String::new())),
             (None, '}', false) => {
                 return Err(DefinitionError(
                     "unmatched closing brace in path pattern".into(),
@@ -173,9 +192,32 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
         }
     }
     let mut router = matchit::Router::new();
+    if repairs.is_empty() {
+        router
+            .insert(pattern, Box::default())
+            .map_err(|error| DefinitionError(error.to_string()))?;
+        return Ok(PathMatcher { router });
+    }
+
+    let invalid_pattern = |error| DefinitionError(format!("{pattern:?}: {error}"));
+    let mut rewritten = String::with_capacity(pattern.len());
+    let mut original_names = Vec::with_capacity(repairs.len());
+    let mut copied = 0;
+    for (range, index, name) in repairs {
+        // Let matchit validate the original name in isolation before replacing
+        // it. With no suffix here, normalization cannot lose an escape marker.
+        matchit::Router::new()
+            .insert(format!("/{}", &pattern[range.clone()]), ())
+            .map_err(invalid_pattern)?;
+        rewritten.push_str(&pattern[copied..range.start]);
+        rewritten.push_str("{a}");
+        copied = range.end;
+        original_names.push((index, name));
+    }
+    rewritten.push_str(&pattern[copied..]);
     router
-        .insert(pattern, ())
-        .map_err(|e| DefinitionError(e.to_string()))?;
+        .insert(rewritten, original_names.into_boxed_slice())
+        .map_err(invalid_pattern)?;
     Ok(PathMatcher { router })
 }
 
