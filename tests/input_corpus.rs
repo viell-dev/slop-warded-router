@@ -487,6 +487,11 @@ mod negotiation {
                 (Some(1), vec![true, true, true]),
             ),
         ];
+        fn empty_lines(count: usize, value: Option<&str>) -> Vec<&str> {
+            let mut lines = vec![""; count];
+            lines.extend(value);
+            lines
+        }
         for (name, rules, (empty, empty_acceptable), [left, right], (choice, acceptable)) in
             &configurations
         {
@@ -506,6 +511,50 @@ mod negotiation {
             ] {
                 assert_layout(name, lines, rules, *choice, acceptable);
             }
+            // Combined empty lines are empty list elements, and parse-net's fixed default
+            // refuses more than 16 of them: the field is then malformed, not memberless.
+            assert_layout(
+                name,
+                &empty_lines(16, None),
+                rules,
+                *empty,
+                empty_acceptable,
+            );
+            assert_layout(
+                name,
+                &empty_lines(16, Some(&joined)),
+                rules,
+                *choice,
+                acceptable,
+            );
+            assert_refused(name, &empty_lines(17, None), rules);
+            assert_refused(name, &empty_lines(17, Some(&joined)), rules);
+        }
+    }
+
+    fn assert_refused(name: &'static str, lines: &[&str], rules: &Rules) {
+        let mut request = Request::new(());
+        for line in lines {
+            request
+                .headers_mut()
+                .append(name, HeaderValue::from_str(line).unwrap());
+        }
+        let head = Head::from_request(&request);
+        for rule in rules.selected.iter().chain(&rules.acceptable) {
+            assert!(
+                matches!(
+                    rule.clone().invalid_is_error().evaluate(&head),
+                    Err(MatchError::InvalidHeader { .. })
+                ),
+                "{name}: {} lines",
+                lines.len()
+            );
+            assert_eq!(
+                rule.evaluate(&head),
+                Ok(None),
+                "{name}: {} lines",
+                lines.len()
+            );
         }
     }
 
@@ -918,9 +967,11 @@ mod negotiation {
         if value == "x-gzip" { "gzip" } else { value }
     }
 
-    /// RFC 9110 §12.5.3: a listed coding has its weight and `*` matches codings not listed,
-    /// including identity. Otherwise identity is acceptable by default; the RFC gives that
-    /// default no weight, so it decides a choice only when no other offer is acceptable.
+    /// RFC 9110 §12.5.3: a listed coding has its weight, `*` matches codings not listed, and
+    /// `*;q=0` excludes an unlisted identity. Giving an unlisted identity a positive `*` weight
+    /// too is Warded's documented policy, not an RFC rule. Without `*`, identity is acceptable
+    /// by default with no specified weight, so it decides a choice only when no other offer is
+    /// acceptable.
     fn encoding_oracle(codings: &[Weighted], offers: &[&str]) -> Verdict {
         let star = codings
             .iter()
@@ -1079,52 +1130,57 @@ mod negotiation {
         rules: Rules,
     }
 
-    /// Totals for one configuration: outcomes, rejected draws and boundary refusals checked.
+    /// Totals for one configuration. `outcomes` classifies Warded's strict results for the
+    /// standalone layout; the undecided counts are the oracle verdicts that were not asserted.
     struct GuidedYield {
         label: &'static str,
         outcomes: Yield,
-        undocumented: usize,
+        undecided: usize,
+        undecided_alone: usize,
         boundaries: usize,
+    }
+
+    /// The oracle's verdicts for one field; `None` marks what its sources leave undecided.
+    #[derive(Debug)]
+    struct Expected {
+        choice: Option<Option<usize>>,
+        alone: Vec<Option<bool>>,
     }
 
     fn run_guided<X, T: 'static>(generator: &mut Generator, config: Guided<X, T>) -> GuidedYield {
         let mut totals = GuidedYield {
             label: config.label,
             outcomes: Yield::default(),
-            undocumented: 0,
+            undecided: 0,
+            undecided_alone: 0,
             boundaries: 0,
         };
         for case in 0..GUIDED_CASES {
-            let (field, expected, acceptable) = loop {
-                let (members, field) = (config.generate)(generator);
-                let choice = (config.oracle)(&members, config.offers);
-                let alone: Result<Vec<bool>, Undocumented> = config
+            let (members, field) = (config.generate)(generator);
+            // An undecided verdict skips only that assertion; syntax and bounds still run.
+            let expected = Expected {
+                choice: (config.oracle)(&members, config.offers).ok(),
+                alone: config
                     .offers
                     .iter()
                     .map(|offer| {
                         (config.oracle)(&members, std::slice::from_ref(offer))
+                            .ok()
                             .map(|chosen| chosen.is_some())
                     })
-                    .collect();
-                if let (Ok(choice), Ok(alone)) = (choice, alone) {
-                    break (field, choice, alone);
-                }
-                totals.undocumented += 1;
-                assert!(
-                    totals.undocumented <= 2 * GUIDED_CASES,
-                    "{}: the oracle rarely decides",
-                    config.label
-                );
+                    .collect(),
             };
+            totals.undecided += usize::from(expected.choice.is_none());
+            totals.undecided_alone += expected.alone.iter().filter(|a| a.is_none()).count();
             let count = field.members.len();
             let mut layouts = vec![vec![field.line(0..count)]];
             if count > 1 {
                 let at = 1 + generator.next() % (count - 1);
                 layouts.push(vec![field.line(0..at), field.line(at..count)]);
             }
-            for lines in layouts {
+            for (layout, lines) in layouts.iter().enumerate() {
                 let mut request = Request::new(());
-                for line in &lines {
+                for line in lines {
                     request
                         .headers_mut()
                         .append(config.name, HeaderValue::from_str(line).unwrap());
@@ -1135,21 +1191,19 @@ mod negotiation {
                     parameters: field.parameters,
                 };
                 let outcome = catch_unwind(AssertUnwindSafe(|| {
-                    assert_guided(&request, &config.rules, expected, &acceptable, &bounds)
+                    assert_guided(&request, &config.rules, &expected, &bounds)
                 }));
-                let Ok(boundaries) = outcome else {
+                let Ok((outcomes, boundaries)) = outcome else {
                     panic!(
                         "seed={GUIDED_SEED:#x}, config={}, case={case}, lines={lines:?}, \
-                         expected={expected:?}, acceptable={acceptable:?}",
+                         expected={expected:?}",
                         config.label
                     );
                 };
+                if layout == 0 {
+                    totals.outcomes.record(&outcomes);
+                }
                 totals.boundaries += boundaries;
-            }
-            if expected.is_some() {
-                totals.outcomes.winner += 1;
-            } else {
-                totals.outcomes.miss += 1;
             }
         }
         totals
@@ -1162,46 +1216,65 @@ mod negotiation {
         parameters: usize,
     }
 
-    /// Assert the oracle's choice under default and exactly sufficient limits, on cached and
-    /// fresh heads, each offer's own acceptability, and a refusal one below each bound.
+    /// Under default and exactly sufficient limits, on cached and fresh heads: a valid field is
+    /// never refused, at most one offer is preferred, and every decided verdict holds. One below
+    /// each bound, every predicate is refused. Returns the strict shared outcomes at default
+    /// limits and the number of bounds checked.
     fn assert_guided(
         request: &Request<()>,
         rules: &Rules,
-        expected: Option<usize>,
-        acceptable: &[bool],
+        expected: &Expected,
         bounds: &Bounds,
-    ) -> usize {
+    ) -> (Vec<MatchResult>, usize) {
         let count = |value: usize| u16::try_from(value).unwrap();
         let head = Head::from_request(request);
         let exact = Limits::DEFAULT
             .max_field_bytes(bounds.bytes)
             .max_list_members(count(bounds.members))
             .max_params(count(bounds.parameters));
+        let check = |result: &MatchResult, verdict: Option<bool>, what: &str| match verdict {
+            Some(wanted) => assert_eq!(result.as_ref().map(Option::is_some), Ok(wanted), "{what}"),
+            None => assert!(result.is_ok(), "{what}: {result:?}"),
+        };
+        let mut shared = Vec::new();
         for limits in [Limits::DEFAULT, exact] {
+            let strict: Vec<MatchResult> = rules
+                .selected
+                .iter()
+                .map(|rule| {
+                    rule.clone()
+                        .parser_limits(limits)
+                        .invalid_is_error()
+                        .evaluate(&head)
+                })
+                .collect();
+            let fresh = Head::from_request(request);
             for (index, rule) in rules.selected.iter().enumerate() {
-                let rule = rule.clone().parser_limits(limits);
-                let wanted = Ok(expected == Some(index));
-                let strict = rule.clone().invalid_is_error();
+                let verdict = expected.choice.map(|choice| choice == Some(index));
+                check(&strict[index], verdict, &format!("preferred offer {index}"));
+                let ordinary = rule.clone().parser_limits(limits).evaluate(&fresh);
                 assert_eq!(
-                    strict.evaluate(&head).map(|m| m.is_some()),
-                    wanted,
-                    "{index}"
-                );
-                let fresh = Head::from_request(request);
-                assert_eq!(
-                    rule.evaluate(&fresh).map(|m| m.is_some()),
-                    wanted,
-                    "{index}"
+                    ordinary, strict[index],
+                    "preferred offer {index}, fresh head"
                 );
             }
-        }
-        for (index, rule) in rules.acceptable.iter().enumerate() {
-            let strict = rule.clone().invalid_is_error();
-            assert_eq!(
-                strict.evaluate(&head).map(|m| m.is_some()),
-                Ok(acceptable[index]),
-                "acceptable offer {index}"
-            );
+            let chosen = strict.iter().filter(|r| matches!(r, Ok(Some(_)))).count();
+            assert!(chosen <= 1, "{chosen} preferred offers");
+            for (index, rule) in rules.acceptable.iter().enumerate() {
+                let strict = rule
+                    .clone()
+                    .parser_limits(limits)
+                    .invalid_is_error()
+                    .evaluate(&head);
+                check(
+                    &strict,
+                    expected.alone[index],
+                    &format!("acceptable {index}"),
+                );
+            }
+            if limits == Limits::DEFAULT {
+                shared = strict;
+            }
         }
         let below = [
             bounds
@@ -1219,20 +1292,20 @@ mod negotiation {
         ];
         let mut refused = 0;
         for limits in below.into_iter().flatten() {
-            let rule = rules.selected[expected.unwrap_or(0)]
-                .clone()
-                .parser_limits(limits);
-            assert!(
-                matches!(
-                    rule.clone().invalid_is_error().evaluate(&head),
-                    Err(MatchError::InvalidHeader { .. })
-                ),
-                "{limits:?}"
-            );
-            assert_eq!(rule.evaluate(&head), Ok(None), "{limits:?}");
+            for rule in rules.selected.iter().chain(&rules.acceptable) {
+                let rule = rule.clone().parser_limits(limits);
+                assert!(
+                    matches!(
+                        rule.clone().invalid_is_error().evaluate(&head),
+                        Err(MatchError::InvalidHeader { .. })
+                    ),
+                    "{limits:?}"
+                );
+                assert_eq!(rule.evaluate(&head), Ok(None), "{limits:?}");
+            }
             refused += 1;
         }
-        refused
+        (shared, refused)
     }
 
     #[test]
@@ -1290,7 +1363,8 @@ mod negotiation {
         for GuidedYield {
             label,
             outcomes,
-            undocumented,
+            undecided,
+            undecided_alone,
             boundaries,
         } in totals
         {
@@ -1301,13 +1375,15 @@ mod negotiation {
             } = outcomes;
             println!(
                 "yield config={label}; group=grammar-guided; winner={winner}; miss={miss}; \
-                 strict refusal={refusal}; undecided draws={undocumented}; \
-                 boundary refusals={boundaries}"
+                 strict refusal={refusal}; undecided={undecided}; \
+                 undecided acceptability={undecided_alone}; boundary refusals={boundaries}"
             );
-            // Keep both outcomes common so the generator continues to exercise selection.
+            // Keep both outcomes common and most choices decided, so selection stays exercised.
             assert!(
-                winner >= GUIDED_CASES / 2 && miss >= GUIDED_CASES / 64,
-                "{label}: winner={winner}, miss={miss}"
+                winner >= GUIDED_CASES / 2
+                    && miss >= GUIDED_CASES / 64
+                    && undecided <= GUIDED_CASES / 2,
+                "{label}: winner={winner}, miss={miss}, undecided={undecided}"
             );
         }
     }

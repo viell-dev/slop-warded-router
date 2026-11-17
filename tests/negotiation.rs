@@ -227,3 +227,28 @@ fn media_precedence_counts_every_parameter_a_member_can_carry() {
         Err(MatchError::InvalidHeader { .. })
     ));
 }
+
+#[test]
+fn a_positive_encoding_wildcard_also_weights_an_unlisted_identity() {
+    // RFC 9110 §12.5.3 specifies only that `*;q=0` excludes an unlisted identity. Applying a
+    // positive `*` weight to it as well is Warded's documented policy.
+    let offers = Offers::encodings(["identity", "gzip"]).unwrap();
+    for (value, expected) in [
+        ("gzip;q=0.8,*;q=0.4", "gzip"),
+        ("gzip;q=0.4,*;q=0.8", "identity"),
+        ("gzip;q=0.4,*;q=0.8,identity;q=0.1", "gzip"),
+    ] {
+        for offer in ["identity", "gzip"] {
+            assert_eq!(
+                outcome(
+                    &offers.selected(offer).unwrap(),
+                    "accept-encoding",
+                    Some(value)
+                )
+                .unwrap(),
+                offer == expected,
+                "{value} {offer}"
+            );
+        }
+    }
+}

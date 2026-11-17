@@ -56,8 +56,10 @@ and cached versus fresh/cloned-head results. Panics fail with the input and seed
 `0x7761726465640002` adds 256 grammar-guided valid fields for each of the four negotiation
 configurations. Each is rendered with equivalent syntax variants, standalone and split across two
 lines, and its preferred and acceptable offers come from a small structural oracle written from
-RFC 9110, RFC 4647 and the documented rules, not from the selection code. Cases those sources
-leave undecided are redrawn. Separate controls cover absent, empty and repeated fields. This
+RFC 9110, RFC 4647 and the documented rules, not from the selection code. Where those sources
+leave the preferred offer or an offer's acceptability undecided, only that assertion is skipped and
+counted; syntax and bound checks still run. Separate controls cover absent, empty and repeated
+fields, including the 16-empty-element limit. This
 supplements protocol examples; it is neither an exhaustive parser oracle nor coverage-guided
 fuzzing.
 
