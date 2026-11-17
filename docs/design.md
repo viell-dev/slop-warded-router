@@ -1,4 +1,4 @@
-# Design and alpha boundaries
+# Design and first-release boundaries
 
 Warded evaluates synchronous conditions on a body-free view, selects the first complete candidate,
 then executes exactly one service. This makes route applicability independent of response status
@@ -22,7 +22,7 @@ These frameworks remain usable destinations or comparison material without becom
 required runtime and request representation.
 
 Rama's generic boolean matcher and ordered dispatch are the closest architectural precedent. The
-alpha instead uses a small original evaluator to keep evaluation errors distinct from misses,
+router uses a small original evaluator to keep evaluation errors distinct from misses,
 exclude bodies from the public predicate interface, support local-only predicates, and provide
 capture-free negation. It does not adapt or copy upstream matcher source.
 
@@ -61,7 +61,7 @@ and the upstream packages for their notices. Warded's original code uses MIT OR 
 ## Selection and captures
 
 All dimensions are peers. Undeclared conditions impose no restriction. Declaration order applies
-even when paths overlap or an earlier route has no path condition. The alpha scans candidates
+even when paths overlap or an earlier route has no path condition. The router scans candidates
 linearly and does not claim a performance advantage.
 
 Each matcher returns its own tentative captures. Conjunction merges only successful results;
@@ -103,7 +103,7 @@ on the same cloned instance it subsequently calls. This avoids coupling unrelate
 readiness. The router's ready result is not admission control: apply an outer Tower concurrency
 limit. Cancellation drops the selected future through normal Tower behavior; no retry is attempted.
 
-The alpha requires a common response body and service error type. `Router` needs a `Default` body
+The adapter requires a common response body and service error type. `Router` needs a `Default` body
 for its implicit 404, whose body is that default value. `RequestRouter` removes that bound and uses
 `RequestDispatchError` to preserve unmatched requests. Ordinary `DispatchError<E>` contains no body.
 Convert heterogeneous service responses or errors before mounting them. Router clones share an
@@ -151,6 +151,30 @@ Method helpers match only their named method. `secured` and `unsecure` inspect t
 data, not URI scheme or forwarding headers. Unknown context errors unless explicitly made a miss.
 `secured_post` and `secured_get_and_head` are ordinary optional compositions; they add no special
 dispatch behavior. HTTPS is not authentication, and a GET-only condition does not match HEAD.
+
+### Negotiation defaults and compatibility
+
+Language constructors require a mode. Choose lookup when offering a fallback such as `fr` for a
+request for `fr-CA`. Choose basic filtering when a broader range such as `fr` should accept an
+offered `fr-CA`. Making the caller choose keeps both directions explicit at the route definition.
+
+An invalid or over-limit field ordinarily misses the negotiation predicate, so a later explicit
+route can supply the application's fallback. An absent field follows that field's preference
+rules. Treating malformed input as absent could give the first offer a preference the client
+never expressed. Use `invalid_is_error` when the host needs a diagnostic and wants selection to
+stop on malformed input.
+
+The default 64 KiB combined-field limit includes separators between repeated lines. Parser
+limits also bound list members and parameters per member. These bounds leave room for long
+preference lists while limiting work on each field. They apply per negotiation operation. A
+deployment can set smaller `Limits` values to fit its workload and use cheap applicable
+conditions before parsing. Shared complete offer sets can reuse the computed choice on a head.
+
+After the 0.1 compatibility freeze, tighter defaults could turn a previously eligible route into
+a fallback or a strict matching error. Changing malformed-as-miss to an error could stop later
+routes from running. Such changes alter documented selection semantics. Use per-route settings
+for stricter application policy and assess an intentional breaking default change against the
+0.2.0 version boundary.
 
 ## Integration and limits
 

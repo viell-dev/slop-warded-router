@@ -4,9 +4,9 @@
 > Agent-authored and submitted on viell-dev's behalf by GPT-6.1 Sol via Codex. The owner has not
 > reviewed this record.
 
-Reviewed on 2026-11-10 to find useful edge cases for early releases. These are pinned snapshots of
-upstream default branches, including unreleased work. We inspected relevant test areas and selected
-cases; we did not run their complete suites or establish cross-router equivalence.
+First reviewed on 2026-11-10 to find useful edge cases for early releases. The initial snapshots
+pin upstream default branches, including unreleased work. The reviews inspect selected cases and
+record their applicability to Warded's own contracts.
 
 ## Review snapshots
 
@@ -137,6 +137,56 @@ of a parameter splice. Warded now verifies both `/{id}{{x}}` and `/{é}{{x}}` wi
 names, escaped literals around multiple captures, catch-alls and rollback. Name validation still
 uses matchit's parser, including its treatment of doubled braces within a name.
 
+## Targeted refresh before RC
+
+GPT-6.2 Sol via Codex inspected these cases on 2026-11-17. The review compares source and
+identifies Warded's regression checks. The promotion PR records the candidate run.
+
+- **matchit 0.9.2 and upstream default branch, both [4b5a2c3][matchit-escape].** The [matching][matchit-match]
+  and [insertion][matchit-insert] cases cover doubled literals, escaped names, affixes and
+  invalid adjacent parameters. The splice still skips the marker at the end of the replaced
+  range. Keep `path_escaped_suffix.rs` for longer ASCII and Unicode names, literals around
+  captures, misses and rollback. Keep the definition and capacity guards.
+  [Upstream #101][matchit-suffix-issue] remains open with zero comments.
+- **Axum 0.8.9 [c59208c][axum-locked-manifest] and default branch [36d38c4][axum-current-manifest].**
+  The locked release uses matchit 0.8.4, whose [matching tests][matchit-axum-match] cover escaped
+  braces in literals and names. The default branch uses matchit 0.9.2. Axum's [routing tests][axum-route-tests]
+  check legacy colon/asterisk guards and its [extractor tests][axum-extract-tests] check its URL
+  parameter state. Keep Warded's independent compilation and raw capture checks for adjacent
+  escaped suffixes and the mounted-Axum regression for URI, state, extraction and extensions.
+- **parse-net 0.10.0 [50eb37a][parse-net-negotiation].** Its tests cover media specificity in
+  either order, parameters after `q`, high-priority lookup truncation and wildcard order. Its
+  generated references check media and lookup. The [maintainer confirmed][parse-net-fix] all
+  four reported upstream fixes. Keep Warded's four original counterexamples and grammar-guided
+  oracle. Warded reuses corrected media range parsing and applicability and keeps local
+  precedence and language scoring where rules differ. [#22][warded-parser-update] compares
+  the selections directly.
+- **parse-net 0.10.0 [lookup implementation][parse-net-lookup].** Its lookup accepts a proper
+  prefix of a client range only if it ends in a multi-character subtag. Keep Warded's positive and
+  zero-quality truncation regressions and the RFC private-use control from [#23][warded-lookup-fix].
+  Warded's exclusion and wildcard policy has separate coverage.
+- **oxilangtag 0.1.6 [ce52043][oxilangtag-tests].** Re-read private-use and grandfathered cases as
+  a control for the language parser. Keep malformed and valid server tag checks for both Warded
+  modes. The replaced [language-tags defect][language-tags-issue] remains open with zero comments.
+
+The new cases needed for this refresh are covered by the escaped-suffix, grammar-guided and
+lookup-truncation work. Keep the earlier Warp/Rama/Salvo/Actix comparisons and Axum fallback,
+method and clone evidence for unchanged composition, rollback, raw input and dispatch behavior.
+
+[matchit-escape]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/src/escape.rs
+[matchit-suffix-issue]: https://github.com/ibraheemdev/matchit/issues/101
+[matchit-axum-match]: https://github.com/ibraheemdev/matchit/blob/413f6e785808b7fa1d6a5d317614447362e1f09e/tests/match.rs
+[axum-locked-manifest]: https://github.com/tokio-rs/axum/blob/c59208c86fded335cd85e388030ad59347b0e5ae/axum/Cargo.toml
+[axum-current-manifest]: https://github.com/tokio-rs/axum/blob/36d38c4cf2766cd7313dd53d808f30546ee36b1e/axum/Cargo.toml
+[axum-route-tests]: https://github.com/tokio-rs/axum/blob/c59208c86fded335cd85e388030ad59347b0e5ae/axum/src/routing/tests/mod.rs
+[axum-extract-tests]: https://github.com/tokio-rs/axum/blob/36d38c4cf2766cd7313dd53d808f30546ee36b1e/axum/src/extract/path/mod.rs
+[parse-net-negotiation]: https://github.com/jamesgober/parse-net/blob/50eb37a64368b3fdf51c8759daca6727442aff45/tests/negotiation.rs
+[parse-net-fix]: https://github.com/jamesgober/parse-net/issues/14#issuecomment-6841585894
+[parse-net-lookup]: https://github.com/jamesgober/parse-net/blob/50eb37a64368b3fdf51c8759daca6727442aff45/src/negotiate.rs
+[warded-parser-update]: https://github.com/viell-dev/slop-warded-router/pull/22
+[warded-lookup-fix]: https://github.com/viell-dev/slop-warded-router/pull/23
+[oxilangtag-tests]: https://github.com/oxigraph/oxilangtag/blob/ce52043e304dc181a385c01357ac725ca33e7954/tests/lib.rs
+[language-tags-issue]: https://github.com/pyfisch/rust-language-tags/issues/50
 [matchit-match]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/match.rs
 [matchit-insert]: https://github.com/ibraheemdev/matchit/blob/4b5a2c356022f544187d6e67325d8e98dd7f11ca/tests/insert.rs
 [axum-fallback]: https://github.com/tokio-rs/axum/blob/47399621c4017601ea493cd63c3af581f4fb33e3/axum/src/routing/tests/fallback.rs

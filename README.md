@@ -4,10 +4,9 @@ A Rust router that selects a service using the complete declared conditions on t
 method, path, headers, query, HTTP version, and trusted HTTPS context. A route need not constrain
 the path. Selection and service execution are separate.
 
-**Status:** `0.1.0-beta.1` source candidate. There is no published crate or release yet. This
-candidate targets the [agreed first-release goal](https://github.com/viell-dev/slop-warded-router/issues/8);
-beta promotion requires independent review and exact-revision gate evidence. This repository
-contains the router; it does not implement an HTTP server or TLS stack.
+**Source beta.** `0.1.0-beta.1` is available as git source. Beta maintenance follows the
+[agreed first-release goal](https://github.com/viell-dev/slop-warded-router/issues/8). Warded selects
+and dispatches requests inside an application's HTTP host.
 
 Agents write and maintain Warded. No person reviews the code. See
 [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution and verification expectations.
@@ -24,17 +23,18 @@ cargo test --all-features --locked
 The basic example dispatches synthetic requests. For an ordinary Axum HTTP/1.1 host, run
 `cargo run --example server --locked`, then request `/orders` with `Accept: application/json`.
 `cargo run --example server --locked -- --check` runs its bounded localhost integration check.
-To use unreleased source in another Cargo package:
+To use Warded in another Cargo package, pin the full commit SHA of the source you tested:
 
 ```toml
 [dependencies]
-warded = { git = "https://github.com/viell-dev/slop-warded-router", branch = "main" }
+warded = { git = "https://github.com/viell-dev/slop-warded-router", rev = "<full commit SHA>" }
 ```
 
-Replace the moving branch with a tested commit `rev` when pinning an application. Crates.io
-installation instructions will be added only after a package is published. Removing the dependency
-from the consumer's `Cargo.toml` and updating its lockfile removes Warded; it installs no service or
-global configuration.
+Get the SHA with `git rev-parse HEAD` in the checkout you tested. Run `cargo build` to resolve
+the dependency, then use `cargo build --locked` to reuse the resolved graph. To update, change
+`rev` and run `cargo update --workspace`. To remove Warded,
+delete the dependency and its uses, then update the lockfile. Restore a tested `rev` and update
+the lockfile again to recover.
 
 ## Match and select
 
@@ -207,17 +207,19 @@ reference with `cargo doc --all-features --no-deps --open`.
 
 Report defects through [GitHub issues](https://github.com/viell-dev/slop-warded-router/issues), with
 the commit, Rust version, features, synthetic request, expected result, and actual result. Report
-suspected vulnerabilities privately as described in [SECURITY.md](./SECURITY.md). This
-candidate does not promise framework-wide compatibility, an HTTP server, authentication, automatic
-protocol response policy, or a performance threshold. The maintained [Leptos application](./integration/leptos/README.md)
+suspected vulnerabilities through [GitHub's private route](./SECURITY.md).
+Security fixes land on `main`. The maintained [Leptos application](./integration/leptos/README.md)
 tests one real SSR/hydration/form/streaming workflow over Linux HTTP/1.1 with three browser engines.
-Windows/Linux library execution is separate evidence; HTTP/2, HTTP/3 and real TLS/proxy integration
-remain unverified.
+Windows/Linux library execution is separate evidence. The tested hosting boundary is HTTP/1.1;
+HTTP/2, HTTP/3 and real TLS/proxy integration remain unverified. The application supplies
+authentication and automatic protocol policy. The performance measurements are diagnostic.
 
-The [release procedure](./docs/release.md) defines beta, RC and stable gates. Stable 0.1.x preserves
+The [release procedure](./docs/release.md) defines beta, RC and stable gates. Integration requires
+the Windows/Linux `ci` and `leptos-fixture` checks on `main`. Stable 0.1.x preserves
 the public API, documented semantics, feature names and Rust minimum 1.99.1; intentional breaking
 changes belong in 0.2.0. RC and stable each require explicit owner approval after review, and stable
-also requires actual human library use. No crate publication or new distribution channel is authorized.
+also requires actual human library use. Git source, this README and locally built rustdoc are the
+current distribution and documentation channels.
 
 Licensed MIT OR Apache-2.0, at the recipient's option. See
 [LICENSE-MIT](./LICENSE-MIT) and [LICENSE-APACHE](./LICENSE-APACHE).

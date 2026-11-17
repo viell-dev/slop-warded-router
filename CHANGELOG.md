@@ -30,8 +30,8 @@
 
 ## 0.1.0-beta.1 source candidate
 
-This is an unpublished source candidate for the agreed router-only first release. Publication
-remains disabled; promotion waits for independent review and exact-revision gate evidence.
+The first source beta for the agreed router-only release integrated through
+[#16](https://github.com/viell-dev/slop-warded-router/pull/16) at `59710b0`.
 
 - Maintain a representative Leptos application using Warded as its outer HTTP router, compared with
   an Axum baseline across three browser engines. Cover dynamic captures, ID/username predicates,
