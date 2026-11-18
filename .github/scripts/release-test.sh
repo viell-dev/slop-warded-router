@@ -229,20 +229,30 @@ fence='```'
 absolute ''
 absolute "\n${fence}md\nSee [x](docs/x.md)\n${fence}\n"
 absolute '\n~~~\n[x](docs/x.md)\n~~~\n'
+# A shorter or different fence inside a code block is content, not a closing fence.
+absolute "\n${fence}\`md\n${fence}\n[x](docs/x.md)\n${fence}\n${fence}\`\n"
+absolute "\n~~~\n${fence}\n[x](docs/x.md)\n${fence}\n~~~\n"
 absolute '\n[Guide](<https://example.com/guide>)\n'
 absolute '\n[x](https://example.com "Title")\n'
 absolute "\nSee https://docs.rs/warded/$release_version.\n"
 relative '\nSee [design](./docs/design.md).\n'
 relative '\n[ref]: docs/design.md\n'
 relative '\n[guide]:\n  docs/guide.md\n'
+relative '\n[guide]:\t\n  docs/guide.md\n'
 relative '\n[Guide](<docs/guide.md>)\n'
 relative '\n![logo](logo.png)\n'
+relative "\n~~~\n${fence}\n~~~\nSee [x](docs/x.md)\n"
 stale readme_append "\n${fence}toml\nwarded = { version = \"=0.0.0-stale\" }\n${fence}\n"
 stale readme_append \
     "\n${fence}toml\nwarded = { default-features = false, version = \"=0.0.0-stale\" }\n${fence}\n"
+stale readme_append "\n${fence}toml\n  warded = \"=0.0.0-stale\"\n${fence}\n"
 stale readme_append '\nSee https://docs.rs/warded/0.0.0-stale.\n'
-stale sed -i "s/^warded = \"=$release_version\"\$/warded = \"0.1\"/" "$scratch/text/README.md"
-stale sed -i "s/^## $release_version\$/## 0.0.0-stale/" "$scratch/text/CHANGELOG.md"
+stale sed -i "s/warded = \"=$release_version\"/warded = \"0.1\"/g" "$scratch/text/README.md"
+stale sed -i -E "s/^## $release_version( |\$)/## 0.0.0-stale\\1/" "$scratch/text/CHANGELOG.md"
+only_unreleased() {
+    printf '# Changes\n\n## Unreleased\n' > "$scratch/text/CHANGELOG.md"
+}
+stale only_unreleased
 text_case
 rm "$scratch/text/README.md"
 expect_failure 'README.md' text_check

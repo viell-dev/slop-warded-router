@@ -5,9 +5,10 @@
 Changes on `main` appear here before the next release.
 
 - Release tooling only; library behavior is unchanged. The repository check also rejects a
-  missing README version pin, a stale table-form pin and relative README links. The release
-  workflow installs the toolchain `rust-toolchain.toml` names, and its publication confirmation
-  stays within the job timeout. The release tests cover index name and checksum validation.
+  missing README version pin, stale pins in any form, a missing changelog release heading and
+  relative README links outside code blocks. The release workflow installs the toolchain
+  `rust-toolchain.toml` names, and its publication confirmation stays within the job timeout. The
+  release tests cover index name and checksum validation and the README rules.
 
 ## 0.1.0-beta.3
 
