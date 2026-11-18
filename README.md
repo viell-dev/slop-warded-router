@@ -26,8 +26,8 @@ This adds the following to `Cargo.toml`:
 
 ```toml
 [dependencies]
-warded = "=0.1.0-beta.3"
 http = "1.5"
+warded = "=0.1.0-beta.3"
 ```
 
 Run `cargo build` to resolve the dependencies. To update, replace the version in `Cargo.toml`
@@ -65,17 +65,25 @@ it. To update to another commit, change `rev` and run `cargo update --workspace`
 use http::Request;
 use warded::{Head, Matcher, Selector, matchers::{exact_path, get, header_eq}};
 
-let routes = Selector::new()
-    .route(get().and(exact_path("/orders")).and(header_eq("accept-language", "fr")?), "french")
-    .route(get().and(exact_path("/orders")).and(header_eq("accept-language", "en")?), "english");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let routes = Selector::new()
+        .route(
+            get().and(exact_path("/orders")).and(header_eq("accept-language", "fr")?),
+            "french",
+        )
+        .route(
+            get().and(exact_path("/orders")).and(header_eq("accept-language", "en")?),
+            "english",
+        );
 
-let request = Request::builder()
-    .uri("/orders")
-    .header("accept-language", "fr")
-    .body(())?;
-let selected = routes.select(&Head::from_request(&request))?.unwrap();
-assert_eq!(*selected.target, "french");
-# Ok::<(), Box<dyn std::error::Error>>(())
+    let request = Request::builder()
+        .uri("/orders")
+        .header("accept-language", "fr")
+        .body(())?;
+    let selected = routes.select(&Head::from_request(&request))?.unwrap();
+    assert_eq!(*selected.target, "french");
+    Ok(())
+}
 ```
 
 `Selector` returns a target without executing it. The first complete match wins; failed headers,
@@ -100,18 +108,20 @@ Refine a successful pattern with `filter` to select by captured values before co
 handler. A predicate can be a free function, closure, newtype parser, or precompiled regex:
 
 ```rust
-use warded::{Matcher, Selector, matchers::path};
+use warded::{DefinitionError, Matcher, Selector, matchers::path};
 
-let routes = Selector::new()
-    .route(path("/users/{id}")?.filter(|captures| {
-        captures.get("id").is_some_and(|raw| raw.parse::<u64>().is_ok())
-    }), "numeric user")
-    .route(path("/users/{username}")?.filter(|captures| {
-        captures.get("username").is_some_and(|raw| {
-            !raw.is_empty() && raw.bytes().all(|byte| byte.is_ascii_alphabetic())
-        })
-    }), "named user");
-# Ok::<(), warded::DefinitionError>(())
+fn main() -> Result<(), DefinitionError> {
+    let routes = Selector::new()
+        .route(path("/users/{id}")?.filter(|captures| {
+            captures.get("id").is_some_and(|raw| raw.parse::<u64>().is_ok())
+        }), "numeric user")
+        .route(path("/users/{username}")?.filter(|captures| {
+            captures.get("username").is_some_and(|raw| {
+                !raw.is_empty() && raw.bytes().all(|byte| byte.is_ascii_alphabetic())
+            })
+        }), "named user");
+    Ok(())
+}
 ```
 
 These are example domain policies; Warded does not assign priority to a type or numeric value.
@@ -150,7 +160,7 @@ unknown value to a miss also means negating that predicate matches the unknown v
 Negotiation reuses `parse-net` grammar, media-range matching and encoding negotiation, plus
 `oxilangtag` for well-formed server tags. Warded supplies media precedence and language selection
 rules; parse-net's own selection differs from them in the edge cases listed in the
-[design notes](./docs/design.md#existing-work-and-dependency-choices).
+[design notes].
 `accepts_media_type("application/json")?` tests
 whether one representation is acceptable. To respect preference among several representations,
 declare the same complete offer set for each alternative:
@@ -158,11 +168,13 @@ declare the same complete offer set for each alternative:
 ```rust
 use warded::{Selector, negotiation::Offers};
 
-let formats = Offers::media_types(["text/html", "application/json"])?;
-let routes = Selector::new()
-    .route(formats.selected("text/html")?, "html")
-    .route(formats.selected("application/json")?, "json");
-# Ok::<(), Box<dyn std::error::Error>>(())
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let formats = Offers::media_types(["text/html", "application/json"])?;
+    let routes = Selector::new()
+        .route(formats.selected("text/html")?, "html")
+        .route(formats.selected("application/json")?, "json");
+    Ok(())
+}
 ```
 
 With `Accept: application/json;q=1, text/html;q=0.5`, preferred-offer predicates select JSON.
@@ -253,6 +265,7 @@ Licensed MIT OR Apache-2.0, at the recipient's option. See
 [server example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/examples/server.rs
 [basic example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/examples/basic.rs
 [design and limits]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/docs/design.md
+[design notes]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/docs/design.md#existing-work-and-dependency-choices
 [verification commands]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/docs/verification.md
 [Leptos application]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/integration/leptos/README.md
 [LICENSE-MIT]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/LICENSE-MIT

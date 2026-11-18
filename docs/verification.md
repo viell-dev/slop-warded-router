@@ -10,7 +10,9 @@ bash scripts/check.sh
 ```
 
 The [script](../scripts/check.sh) anchors itself to the checkout root and derives the packaged
-manifest from Cargo's current package identity. It runs formatting, Clippy on all targets,
+manifest from Cargo's current package identity. It first requires the README install pin,
+version-pinned links and latest changelog release heading to name that version. It then runs
+formatting, Clippy on all targets,
 the four feature configurations and doctests, documentation with warnings denied, both examples,
 package verification, and both packaged examples. Package output uses `CARGO_TARGET_DIR` when set,
 otherwise `target`; the package step chooses that output explicitly to avoid stale-path fallback.

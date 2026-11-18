@@ -170,9 +170,11 @@ maintained mitigations, upstream reports and reconsideration triggers. The
 - Contain the prototype cargo-leptos cleanup problem by starting/supervising the binary directly;
   verify failure cleanup before container teardown. Preserve the original observation; no upstream
   fix is required by this fixture. Remove the starter's ignored metadata from the maintained copy.
-- Keep Cargo publication disabled. GitHub private reporting, dependency policy checks and the
-  hosted fixture gate are in place. The [release procedure](./release.md) describes exact-candidate
-  verification, the source distribution channel and the pending human release-testing gate.
+- Distribute through crates.io from `0.1.0-beta.3`, with docs.rs as the versioned API reference.
+  GitHub private reporting, dependency policy checks and the hosted fixture gate are in place. The
+  [release procedure](./release.md) describes exact-commit verification, publication and the
+  owner's hands-on session before RC
+  ([#26](https://github.com/viell-dev/slop-warded-router/issues/26)).
 
 The recurring [upstream-test comparison](./upstream-tests.md) records affected areas and reuse for
 unchanged ones. The [release procedure](./release.md) carries unfinished RC/stable work; beta
