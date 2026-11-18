@@ -242,6 +242,9 @@ relative '\n[guide]:\t\n  docs/guide.md\n'
 relative '\n[Guide](<docs/guide.md>)\n'
 relative '\n![logo](logo.png)\n'
 relative "\n~~~\n${fence}\n~~~\nSee [x](docs/x.md)\n"
+# A CRLF closing fence still closes, and a fence indented four spaces is indented code.
+relative "\n${fence}\nx\n${fence}\r\nSee [x](docs/x.md)\n"
+relative "\n    ${fence}\`\n    ${fence}\nSee [x](docs/x.md)\n"
 stale readme_append "\n${fence}toml\nwarded = { version = \"=0.0.0-stale\" }\n${fence}\n"
 stale readme_append \
     "\n${fence}toml\nwarded = { default-features = false, version = \"=0.0.0-stale\" }\n${fence}\n"

@@ -16,7 +16,8 @@ matches() {
 
 # Link destinations outside fenced code: inline links and images, and reference definitions,
 # including one whose destination is on the next line. Angle brackets and titles are dropped.
-# As in CommonMark, only a fence of the opening character and at least its length closes a block.
+# As in CommonMark, a fence is indented at most three spaces, and only a fence of the opening
+# character and at least its length closes a block.
 readme_links() {
     awk '
         function emit(destination) {
@@ -25,10 +26,12 @@ readme_links() {
             print destination
         }
         {
+            sub(/\r$/, "")
             text = $0
             sub(/^ */, "", text)
+            indent = length($0) - length(text)
         }
-        match(text, /^(````*|~~~~*)/) {
+        indent < 4 && match(text, /^(````*|~~~~*)/) {
             marker = substr(text, 1, RLENGTH)
             if (fence == "") {
                 fence = marker
