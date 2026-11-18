@@ -74,11 +74,16 @@ cache. Three warmups precede 1000 path selections or 20 negotiation selections. 
   early/late/miss, four unsupported members or 1023, with a matching member appended for hits.
 - Small fields of 239–257 bytes and near-bound fields of 61,379–61,397 bytes, within the default
   64 KiB and 1024-member limits.
+- Near-64-KiB language lookup with three offers, zero-quality exclusions and an asserted fallback.
+  This row uses the same warmups, fresh head and 20 timed selections as the media cases.
 
 The exact CSV records diagnostic means from Cargo's optimized benchmark profile. The beta.2
 promotion PR records the refreshed CSV from the final candidate archive, including the source and
-environment identifiers. These samples support the API decision below. The earlier alpha.2
-shared-offer probe used a smaller input and measured a different workload.
+environment identifiers. It compares the added language row on the same input before and after
+the linear-time exclusion check. The change bounds each exclusion check by the offer length.
+Overall lookup cost still depends on the active ranges, positive truncations and offers. These
+samples support the API decision below. The earlier alpha.2 shared-offer probe used a smaller
+input and measured a different workload.
 
 **Decision:** no indexing-driven API change is needed for the scoped first release. Linear path
 selection has a documented cost; repeated negotiation dominates the measured adverse case. Keep

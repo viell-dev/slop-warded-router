@@ -49,14 +49,13 @@ Independent agent agreement alone does not authorize this transition. Before req
 - Require exact-candidate success from the hosted [Leptos fixture](../integration/leptos/README.md).
   It runs on pull requests to `main` and pushes to `main` for changes to library source, the root
   `Cargo.toml`, Cargo configuration, the Rust toolchain file, the fixture (except its Markdown) or
-  its workflow. The library's `Cargo.lock` is excluded because the fixture has its own lockfile.
+  its workflow or path gate script. The fixture uses its own lockfile.
   Unprefixed version tags such as `0.1.0-rc.1` and `0.1.0` trigger a run regardless of path. Use
   manual dispatch when candidate evidence is missing and record its tested commit or tree.
 - Every pull request reports the required `leptos-fixture` check, alongside the Windows/Linux
-  `ci` check. A short job compares the PR merge revision with its base. The check passes only when
-  the fixture passed, or when it was skipped because none of those paths changed. Failed, cancelled
-  or missing fixture results therefore block merge. Both fixture compilation modes run in the
-  hosted job.
+  `ci` check. A short job compares the PR merge revision with its base and requires a fixture
+  pass for affected paths or a skip with an explicit unaffected result. Both fixture compilation
+  modes run in the hosted job. Each non-PR trigger retains its own run.
 - Recommend continuing the personal-use git-source channel for the first RC. Pin a tested commit
   with Cargo's `rev`. An unprefixed annotated tag can name the same commit when authorized.
   The README covers onboarding and links to runnable examples and focused guides. Build rustdoc

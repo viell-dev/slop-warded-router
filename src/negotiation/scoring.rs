@@ -75,20 +75,26 @@ fn truncate(range: &[u8]) -> Option<&[u8]> {
 
 // Rank is used only for zero-quality exclusions. Positive lookup preferences
 // are processed by client priority, never overwritten by lower-priority ranges.
-fn lookup_rank(mut range: &[u8], offer: &[u8]) -> Option<usize> {
+//
+// A truncation equals the offer when the offer is a proper prefix at a subtag
+// boundary and ends in a multi-character subtag. Checking the prefix and its
+// last subtag takes linear time in the offer length.
+fn lookup_rank(range: &[u8], offer: &[u8]) -> Option<usize> {
     if range == b"*" {
         return Some(0);
     }
     if range.eq_ignore_ascii_case(offer) {
         return Some(usize::MAX);
     }
-    while let Some(shorter) = truncate(range) {
-        range = shorter;
-        if range.eq_ignore_ascii_case(offer) {
-            return Some(range.len());
-        }
-    }
-    None
+    let last_subtag = offer
+        .iter()
+        .rposition(|&b| b == b'-')
+        .map_or(offer.len(), |dash| offer.len() - dash - 1);
+    (last_subtag > 1
+        && range.len() > offer.len()
+        && range[offer.len()] == b'-'
+        && range[..offer.len()].eq_ignore_ascii_case(offer))
+    .then_some(offer.len())
 }
 
 pub(super) fn language(
@@ -172,4 +178,48 @@ pub(super) fn language(
             .position(|offer| !excluded(offer.as_bytes(), 0)));
     }
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{lookup_rank, truncate};
+
+    #[test]
+    fn lookup_exclusion_rank_agrees_with_iterative_truncation() {
+        let check = |range: &[u8], offer: &[u8]| {
+            let expected = if range == b"*" {
+                Some(0)
+            } else if range.eq_ignore_ascii_case(offer) {
+                Some(usize::MAX)
+            } else {
+                std::iter::successors(truncate(range), |shorter| truncate(shorter))
+                    .find(|shorter| shorter.eq_ignore_ascii_case(offer))
+                    .map(<[u8]>::len)
+            };
+            assert_eq!(lookup_rank(range, offer), expected, "{range:?} / {offer:?}");
+        };
+        let mut level = vec![String::from("en"), String::from("x")];
+        let mut tags = level.clone();
+        for _ in 0..4 {
+            level = level
+                .iter()
+                .flat_map(|prefix| {
+                    ["a", "2", "cC", "abc", "abcdefgh"].map(|subtag| format!("{prefix}-{subtag}"))
+                })
+                .collect();
+            tags.extend(level.iter().cloned());
+        }
+        for tag in &tags {
+            let range = tag.as_bytes();
+            let upper = tag.to_ascii_uppercase();
+            // Every byte prefix covers exact, truncation and non-boundary cases.
+            for end in 1..=range.len() {
+                check(range, &upper.as_bytes()[..end]);
+            }
+            check(range, b"unrelated");
+            check(range, b"*");
+            check(b"*", range);
+        }
+        check(b"*", b"*");
+    }
 }

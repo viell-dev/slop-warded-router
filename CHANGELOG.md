@@ -6,16 +6,21 @@ The second source beta for the agreed router-only first release. Cargo publicati
 
 - Remove every trailing one-character subtag during language lookup truncation, as RFC 4647
   section 3.4 requires: `x-a-b-cc` no longer reaches the offer `x-a`, as a match or as an exclusion.
+  [#23](https://github.com/viell-dev/slop-warded-router/pull/23)
 - Accept escaped literal suffixes after longer ASCII and Unicode path parameter names. Preserve
   declared capture names and raw values while handling matchit 0.9.2's normalization locally.
+  [#18](https://github.com/viell-dev/slop-warded-router/pull/18)
 - Add a security policy with GitHub private vulnerability reporting as the private route.
 - Check RustSec advisories, licenses, wildcard requirements and dependency sources with a pinned,
   checksum-verified cargo-deny in required CI. The policy configures zero advisory ignores.
 - Configure weekly Dependabot updates for the library's Cargo dependencies and GitHub Actions.
+  [#17](https://github.com/viell-dev/slop-warded-router/pull/17) covers these dependency and
+  reporting changes.
 - Run the representative Leptos fixture in GitHub Actions for affected changes and source release
   tags, gated by a required `leptos-fixture` check that every pull request reports. Report
   HTTP-client and browser results separately, check selected page elements and live router
   identity, and retain exact-revision reports, traces and server logs.
+  [#20](https://github.com/viell-dev/slop-warded-router/pull/20)
 - Add grammar-guided valid Accept, Accept-Language and Accept-Encoding corpus cases whose preferred
   and acceptable offers come from an independent oracle written from RFC 9110, RFC 4647 and the
   documented rules. Separate absent, empty, standalone and repeated-field controls, and report
@@ -27,10 +32,17 @@ The second source beta for the agreed router-only first release. Cargo publicati
 - Update parse-net from 0.9.3 to 0.10.0, still pinned exactly. Reuse its corrected media-range
   parameters and matching while preserving Warded's media precedence and language selection.
 - Document that a negotiation member carries at most 64 parameters, counting `q`, whatever the
-  configured parameter bound. This limit is inherited and unchanged.
+  configured parameter bound. This limit is inherited.
+  [#22](https://github.com/viell-dev/slop-warded-router/pull/22) covers the parser and oracle work.
+- Make each zero-quality lookup exclusion check linear in the offer length. Add a
+  correctness-checked near-bound language lookup measurement.
+- Detect fixture-affecting deletions and non-ASCII paths, reject missing gate output, and keep
+  separate CI and fixture runs for non-PR triggers. Fail on unmaintained and unsound advisories
+  throughout the library dependency graph.
 - Verify a disposable consumer's pinned git install, feature builds, dependency rustdoc, update,
-  removal and recovery. Document the targeted upstream review, negotiation defaults and the
-  proposed RC source and documentation channels.
+  removal and recovery using the README dependency snippet. Document the targeted upstream
+  review, negotiation defaults and the proposed RC source and documentation channels.
+  [#24](https://github.com/viell-dev/slop-warded-router/pull/24) covers these promotion changes.
 
 ## 0.1.0-beta.1 source candidate
 

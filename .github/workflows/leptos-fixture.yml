@@ -20,6 +20,7 @@ on:
       - 'integration/leptos/**'
       - '!integration/leptos/**/*.md'
       - '.github/workflows/leptos-fixture.yml'
+      - '.github/scripts/fixture-affected.sh'
   workflow_dispatch:
 
 permissions:
@@ -30,8 +31,8 @@ defaults:
     shell: bash
 
 concurrency:
-  group: leptos-fixture-${{ github.ref }}
-  # Keep every main push and tag run so each integrated commit has evidence.
+  # Supersede older PR runs. Each push, tag and manual run has its own group.
+  group: leptos-fixture-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -42,10 +43,29 @@ jobs:
       affected: ${{ steps.paths.outputs.affected }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request'
         with:
           persist-credentials: false
           fetch-depth: 2
+      - name: Self-test the fixture path gate
+        run: |
+          expect() {
+            local expected="$1" label="$2" path actual
+            shift 2
+            actual="$(for path in "$@"; do printf '%s\0' "$path"; done |
+              bash .github/scripts/fixture-affected.sh)"
+            if [[ "$actual" != "affected=$expected" ]]; then
+              printf '%s: expected affected=%s, got %s\n' "$label" "$expected" "$actual" >&2
+              exit 1
+            fi
+            printf '%s: %s\n' "$label" "$actual"
+          }
+          expect true 'asset moved out of fixture' integration/leptos/public/favicon.ico docs/favicon.ico
+          expect true 'non-ASCII source path' src/café.rs
+          expect false 'fixture Markdown only' integration/leptos/docs/notes.md
+          expect false 'library lockfile only' Cargo.lock
+          expect true 'workflow only' .github/workflows/leptos-fixture.yml
+          expect true 'path gate only' .github/scripts/fixture-affected.sh
+          expect false 'empty list'
       - name: Detect fixture-affecting changes
         id: paths
         env:
@@ -55,20 +75,12 @@ jobs:
             echo "affected=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # HEAD is the PR merge commit; its first parent is the base it merges into.
-          # Keep this list equal to the push path filters above. The fixture has its
-          # own lockfile, so the library's Cargo.lock does not affect it.
-          changed="$(git diff --name-only HEAD^1 HEAD)"
-          printf '%s\n' "$changed"
-          affected=false
-          while IFS= read -r file; do
-            [[ -z "$file" || "$file" =~ ^integration/leptos/.*\.md$ ]] && continue
-            if [[ "$file" =~ ^(src/|\.cargo/|integration/leptos/) ||
-                  "$file" =~ ^(Cargo\.toml|rust-toolchain\.toml|\.github/workflows/leptos-fixture\.yml)$ ]]; then
-              affected=true
-            fi
-          done <<<"$changed"
-          echo "affected=$affected" | tee -a "$GITHUB_OUTPUT"
+          # The first parent of the PR merge commit is the base. List both sides
+          # of renames as a deletion and addition, and preserve path bytes.
+          set -o pipefail
+          decision="$(git -c core.quotePath=false diff --no-renames -z --name-only HEAD^1 HEAD |
+            bash .github/scripts/fixture-affected.sh)"
+          printf '%s\n' "$decision" | tee -a "$GITHUB_OUTPUT"
 
   fixture:
     name: Linux HTTP and browser fixture
@@ -155,8 +167,11 @@ jobs:
           FIXTURE_RESULT: ${{ needs.fixture.result }}
         run: |
           test "$CHANGES_RESULT" = success
-          if [[ "$AFFECTED" == true ]]; then
-            test "$FIXTURE_RESULT" = success
-          else
-            test "$FIXTURE_RESULT" = skipped
-          fi
+          case "$AFFECTED:$FIXTURE_RESULT" in
+            true:success|false:skipped) ;;
+            *)
+              printf 'Unexpected fixture gate state: affected=%q, fixture=%q\n' \
+                "$AFFECTED" "$FIXTURE_RESULT" >&2
+              exit 1
+              ;;
+          esac

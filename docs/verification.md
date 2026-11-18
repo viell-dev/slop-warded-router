@@ -17,10 +17,11 @@ otherwise `target`; the package step chooses that output explicitly to avoid sta
 
 A separate required Linux job runs `cargo deny --locked check` with cargo-deny 0.20.2, verified
 by the release checksum recorded in the workflow. [deny.toml](../deny.toml) covers the all-features
-library graph including dev dependencies: RustSec vulnerability, unmaintained, unsound and yanked
-advisories fail the job, as do licenses outside the allow list, wildcard requirements and sources
-other than crates.io. Run the same command locally after installing that cargo-deny version. The
-Leptos fixture's separate lockfile is not part of this graph. Dependabot proposes weekly Cargo and
+library graph including dev dependencies. RustSec vulnerability, unmaintained and unsound
+advisories fail the job throughout the resolved graph. Yanked versions, licenses outside the
+allow list, wildcard requirements and non-crates.io sources also fail the job. Run the same
+command locally after installing that cargo-deny version. The Leptos fixture has a separate
+dependency graph. Dependabot proposes weekly Cargo and
 GitHub Actions updates for the library; grouped patch updates and individual minor updates still
 pass through ordinary review and CI.
 
@@ -81,6 +82,8 @@ The runner checks the live server identity, binds reports to the exact source an
 after a forced failure. Hosted and local runs execute the same suite. It does not replace the
 required Windows/Linux library CI or human release testing. On pull requests the required
 `leptos-fixture` check runs the suite when the [fixture's inputs change](./release.md#before-rc).
+The fixture builds Warded with only `tower`. Negotiation evidence comes from the library checks,
+benchmarks, clean-consumer rehearsal and the server example.
 
 ## Clean git-source consumer
 
@@ -88,12 +91,14 @@ Use a Bash environment with Rust 1.99.1, Git and HTTPS access to GitHub and crat
 full SHA of a pushed revision:
 
 ```sh
-bash scripts/check-clean-consumer.sh <pushed-commit-sha>
+bash scripts/check-clean-consumer.sh <pushed-commit-sha> [previous-release-sha]
 ```
 
 The [script](../scripts/check-clean-consumer.sh) creates a disposable Cargo package outside the
-source tree with its own target directory. It first runs against beta.1, then changes the `rev`
-and updates the existing lockfile. It checks the exact resolved commit, runs matching and
+source tree with its own target directory. It uses the README's Cargo dependency snippet and
+first runs against the update baseline, which defaults to source beta.1. Pass the optional second
+argument to exercise an update from another pushed revision. The script changes the `rev` and
+updates the existing lockfile. It checks the exact resolved commit, runs matching and
 example-equivalent feature checks with defaults, without defaults and with each optional feature
 alone, then builds Warded's dependency rustdoc with warnings denied. Finally it removes Warded,
 checks that its package and source are gone from the lockfile, and restores and runs the pinned
@@ -121,9 +126,10 @@ unsupported token-limit setter was removed. Listener checks compare complete Var
 `accept-encoding` cannot satisfy an expected `accept` token.
 
 Run `cargo bench --bench selection --locked` for the current focused cost probe: compiled path
-tables with 16/128/1024 routes, independent versus shared negotiation with 16/128 offers, small and
-near-64-KiB fields, and early/late/miss shapes. A fresh head includes cache creation in each sample;
-every sample asserts the target or miss and path captures. The
+tables with 16/128/1024 routes, independent versus shared media negotiation with 16/128 offers,
+small and near-64-KiB fields, early/late/miss shapes, and near-64-KiB language lookup with
+exclusions. A fresh head includes cache creation in each sample. Every sample asserts the target
+or miss and, for path hits, the captures. The
 [assessment](./beta-assessment.md#selection-cost-decision) records inputs, counts, environment,
 measurements, limits and the indexing decision. This is not a CI timing threshold or throughput
 promise. The earlier alpha.2 shared-offer probe used a different smaller input; retain its historical

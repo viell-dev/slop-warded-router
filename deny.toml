@@ -7,8 +7,10 @@
 all-features = true
 
 [advisories]
-# Vulnerability, unmaintained and unsound advisories are errors by default.
-# Yanked crates are errors too. Record a reason with any future ignore entry.
+# Fail on vulnerabilities, unmaintained and unsound advisories across the graph,
+# and yanked crates. Record a reason with any future ignore entry.
+unmaintained = "all"
+unsound = "all"
 yanked = "deny"
 ignore = []
 
