@@ -10,10 +10,11 @@ bash scripts/check.sh
 ```
 
 The [script](../scripts/check.sh) anchors itself to the checkout root and derives the packaged
-manifest from Cargo's current package identity. It first requires the README install pin,
-version-pinned links and latest changelog release heading to name that version. It then runs
-formatting, Clippy on all targets,
-the four feature configurations and doctests, documentation with warnings denied, both examples,
+manifest from Cargo's current package identity. It first requires the README to pin that version,
+its install pins, version-pinned links and the latest changelog release heading to name only that
+version, and every README link to be absolute or an in-page anchor. crates.io resolves relative
+README links against the default branch. It then runs formatting, Clippy on all targets, the four
+feature configurations and doctests, documentation with warnings denied, both examples,
 package verification, and both packaged examples. Package output uses `CARGO_TARGET_DIR` when set,
 otherwise `target`; the package step chooses that output explicitly to avoid stale-path fallback.
 

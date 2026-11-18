@@ -10,19 +10,33 @@ package_version="${package_id##*[@#]}"
 package_target="${CARGO_TARGET_DIR:-target}"
 package_manifest="$package_target/package/warded-$package_version/Cargo.toml"
 
-# A published README cannot be corrected, so its install pin and version-pinned links, and the
-# changelog's latest release heading, must name the version being packaged.
+# A published README cannot be corrected, so it must pin the version being packaged, and its
+# install pins, version-pinned links and the changelog's latest release heading must name only
+# that version. crates.io resolves relative README links against the default branch, so every
+# link must be absolute or an in-page anchor.
 release_versions="$(
     {
-        grep -oE "warded@=[^' ]+|warded = \"=[^\"]+\"" README.md | grep -oE '[0-9][^"]*'
+        grep -oE "warded@=[^' ]+|warded = (\{ *version = )?\"=[^\"]+\"" README.md |
+            grep -oE '[0-9][^"]*'
         grep -oE 'slop-warded-router/(blob|tree)/[0-9][^/)#]*|(crates|docs\.rs)/warded/[0-9][^/)#]*' \
-            README.md | sed -E 's#.*/##'
+            README.md | sed -E 's#.*/##; s/[.,;:]+$//'
         grep -m 1 -E '^## [0-9]' CHANGELOG.md | sed -E 's/^## ([^ ]+).*/\1/'
     } | sort -u
 )"
-if [[ "$release_versions" != "$package_version" ]]; then
-    printf 'README and CHANGELOG must name only %s; found:\n%s\n' "$package_version" \
+if [[ "$release_versions" != "$package_version" ]] ||
+    ! grep -qF "warded = \"=$package_version\"" README.md; then
+    printf 'README and CHANGELOG must pin and name only %s; found:\n%s\n' "$package_version" \
         "$release_versions" >&2
+    exit 1
+fi
+relative_links="$(
+    {
+        grep -oE '\]\([^)]+\)' README.md | sed -E 's/^\]\(//; s/\)$//'
+        grep -oE '^\[[^]]+\]: +[^ ]+' README.md | sed -E 's/^\[[^]]+\]: +//'
+    } | grep -vE '^(https?://|#|mailto:)' || true
+)"
+if [[ -n "$relative_links" ]]; then
+    printf 'README links must be absolute for crates.io; found:\n%s\n' "$relative_links" >&2
     exit 1
 fi
 

@@ -71,10 +71,10 @@ and checks both compilation modes.
 
 1. Prepare a release PR with the version in Cargo.toml and both lockfiles, the README status,
    install commands and versioned links, and the changelog; `scripts/check.sh` fails if they name
-   another version. For `0.1.0-beta.3` the release notes link the [hands-on
-   request](https://github.com/viell-dev/slop-warded-router/issues/26). Review the complete PR and
-   pass required CI on its final head. After integration, verify the commit and tree against the
-   reviewed head and refresh any evidence invalidated by integration.
+   another version or a README link is relative. For `0.1.0-beta.3` the release notes link the
+   [hands-on request](https://github.com/viell-dev/slop-warded-router/issues/26). Review the
+   complete PR and pass required CI on its final head. After integration, verify the commit and
+   tree against the reviewed head and refresh any evidence invalidated by integration.
 2. Run [repository verification](./verification.md) on an archive of the release commit.
    Check the package list and run `cargo publish --dry-run --locked` from a clean Git checkout
    of the exact commit. Run the git-source clean-consumer check against that pushed commit.
@@ -129,17 +129,18 @@ rm -- "$index_output"
 ```
 
 Only `published=false` permits the upload. A matching existing version means the upload already
-succeeded. Investigate any checksum mismatch before proceeding.
+succeeded. Investigate any checksum mismatch before proceeding. `cargo package` has just built and
+verified these bytes, so upload without repeating the build, as the release workflow does. This
+keeps dependency build scripts away from the token, and the confirm step checks the bytes:
 
 ```sh
-cargo publish --locked --registry crates-io --target-dir target
+cargo publish --locked --no-verify --registry crates-io --target-dir target
 bash .github/scripts/release-index.sh confirm "$version" "$checksum"
 ```
 
 If the signed-in Cargo session is on a system that cannot build the package, upload from a clean
 checkout of the same commit there only after `cargo package --locked --no-verify` reproduces the
-verified Linux checksum. Then run `cargo publish --locked --no-verify --registry crates-io` and
-confirm the index checksum as above.
+verified Linux checksum. Then run the same `cargo publish` command and confirm the index checksum.
 
 ## Trusted publishing
 
