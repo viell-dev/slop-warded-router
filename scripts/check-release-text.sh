@@ -16,6 +16,7 @@ matches() {
 
 # Link destinations outside fenced code: inline links and images, and reference definitions,
 # including one whose destination is on the next line. Angle brackets and titles are dropped.
+# As in CommonMark, only a fence of the opening character and at least its length closes a block.
 readme_links() {
     awk '
         function emit(destination) {
@@ -23,13 +24,26 @@ readme_links() {
             sub(/>$/, "", destination)
             print destination
         }
-        /^ *(```|~~~)/ { fenced = !fenced; next }
-        fenced { next }
+        {
+            text = $0
+            sub(/^ */, "", text)
+        }
+        match(text, /^(````*|~~~~*)/) {
+            marker = substr(text, 1, RLENGTH)
+            if (fence == "") {
+                fence = marker
+            } else if (substr(marker, 1, 1) == substr(fence, 1, 1) &&
+                    length(marker) >= length(fence) && substr(text, RLENGTH + 1) ~ /^[ \t]*$/) {
+                fence = ""
+            }
+            next
+        }
+        fence != "" { next }
         pending { if (NF) { emit($1); pending = 0 }; next }
         /^ *\[[^]]+\]:/ {
             rest = $0
-            sub(/^ *\[[^]]+\]: */, "", rest)
-            if (rest == "") { pending = 1 } else { split(rest, field, " "); emit(field[1]) }
+            sub(/^ *\[[^]]+\]:/, "", rest)
+            if (rest ~ /^[ \t]*$/) { pending = 1 } else { split(rest, field, " "); emit(field[1]) }
             next
         }
         {
@@ -44,8 +58,8 @@ readme_links() {
 }
 
 pin_versions="$(
-    matches -oE "warded@=[^' ]+|^warded *= *\"=[^\"]+\"|^warded *= *\{.*version *= *\"=[^\"]+\"" \
-        README.md | sed -E 's/.*=//; s/"$//'
+    matches -oE "warded@=[^' ]+|^[[:space:]]*warded *= *(\{.*version *= *)?\"=[^\"]+\"" README.md |
+        sed -E 's/.*=//; s/"$//'
 )"
 link_versions="$(
     matches -oE 'slop-warded-router/(blob|tree)/[0-9][^/)#>]*|(crates|docs\.rs)/warded/[0-9][^/)#>]*' \
@@ -55,7 +69,7 @@ changelog_version="$(matches -m 1 -E '^## [0-9]' CHANGELOG.md | sed -E 's/^## ([
 release_versions="$(
     printf '%s\n' "$pin_versions" "$link_versions" "$changelog_version" | sed '/^$/d' | sort -u
 )"
-if [[ "$release_versions" != "$package_version" ]] ||
+if [[ "$release_versions" != "$package_version" || "$changelog_version" != "$package_version" ]] ||
     ! grep -qF "warded = \"=$package_version\"" README.md; then
     printf 'README and CHANGELOG must pin and name only %s; found:\n%s\n' "$package_version" \
         "$release_versions" >&2
