@@ -108,12 +108,16 @@ fn measure_lookup_exclusion() {
         routes = routes.route(offers.selected(language).unwrap(), index);
     }
 
-    // Exercise a near-limit list with exclusions and a known fallback.
-    let mut field = String::from("en-CA,fr-CA;q=0.8,en-US;q=0");
-    let subtags = "-sample".repeat(70);
-    for variant in 0..127 {
-        write!(field, ",de-DE-x-{variant:03x}{subtags};q=0").unwrap();
+    // Repeat lookup of the first offer before choosing the known fallback.
+    let mut field = String::new();
+    for variant in 0..200 {
+        write!(field, "en-x-{variant:03x},").unwrap();
     }
+    field.push_str("fr-CA;q=0.8,de;q=0,en-x");
+    let subtag = "-sample";
+    let weight = ";q=0";
+    field.push_str(&subtag.repeat((65_536 - field.len() - weight.len()) / subtag.len()));
+    field.push_str(weight);
     assert!((64_000..=65_536).contains(&field.len()));
 
     let request = Request::builder()

@@ -76,7 +76,7 @@ fn truncate(range: &[u8]) -> Option<&[u8]> {
 // Rank is used only for zero-quality exclusions. Positive lookup preferences
 // are processed by client priority, never overwritten by lower-priority ranges.
 //
-// A truncation equals the offer when the offer is a proper prefix at a subtag
+// A truncation equals the offer exactly when the offer is a proper prefix at a subtag
 // boundary and ends in a multi-character subtag. Checking the prefix and its
 // last subtag takes linear time in the offer length.
 fn lookup_rank(range: &[u8], offer: &[u8]) -> Option<usize> {
