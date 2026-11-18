@@ -4,16 +4,40 @@ A Rust router that selects a service using the complete declared conditions on t
 method, path, headers, query, HTTP version, and trusted HTTPS context. A route need not constrain
 the path. Selection and service execution are separate.
 
-**Source beta.** `0.1.0-beta.2` is available as git source. Beta maintenance follows the
-[agreed first-release goal](https://github.com/viell-dev/slop-warded-router/issues/8). Warded selects
-and dispatches requests inside an application's HTTP host.
+**Beta.** `0.1.0-beta.3` is the first [crates.io publication] and the candidate for the
+[hands-on test](https://github.com/viell-dev/slop-warded-router/issues/26). See the versioned
+[API reference] on docs.rs. Beta maintenance follows the
+[agreed first-release goal](https://github.com/viell-dev/slop-warded-router/issues/8).
 
 Agents write and maintain Warded. No person reviews the code. See
-[CONTRIBUTING.md](./CONTRIBUTING.md) for contribution and verification expectations.
+[CONTRIBUTING.md](https://github.com/viell-dev/slop-warded-router/blob/main/CONTRIBUTING.md)
+for contribution and verification expectations.
 
-## Try the source
+## Install
 
-The declared and tested minimum Rust version is 1.99.1. Clone this repository and run:
+Warded requires Rust 1.99.1 or later. In your Cargo project, add the exact prerelease and the
+`http` types used in the examples:
+
+```sh
+cargo add 'warded@=0.1.0-beta.3' 'http@1.5'
+```
+
+This adds the following to `Cargo.toml`:
+
+```toml
+[dependencies]
+warded = "=0.1.0-beta.3"
+http = "1.5"
+```
+
+Run `cargo build` to resolve the dependencies. To update, replace the version in `Cargo.toml`
+with the new exact version and run `cargo update --workspace`. After removing Warded's calls
+and imports, run `cargo remove warded` to remove the dependency and refresh the lockfile.
+To recover, restore the working code and re-add its exact Warded version.
+
+## Try the examples
+
+Check out the matching [source tag] and run:
 
 ```sh
 cargo run --example basic --locked
@@ -23,7 +47,7 @@ cargo test --all-features --locked
 The basic example dispatches synthetic requests. For an ordinary Axum HTTP/1.1 host, run
 `cargo run --example server --locked`, then request `/orders` with `Accept: application/json`.
 `cargo run --example server --locked -- --check` runs its bounded localhost integration check.
-To use Warded in another Cargo package, pin the full commit SHA of the source you tested:
+To try an unreleased commit in another Cargo package, pin its full SHA:
 
 ```toml
 [dependencies]
@@ -31,10 +55,9 @@ warded = { git = "https://github.com/viell-dev/slop-warded-router", rev = "<full
 http = "1.5"
 ```
 
-Get the SHA with `git rev-parse HEAD` in the checkout you tested. Run `cargo build` to resolve
-the dependency, then use `cargo build --locked` to reuse the resolved graph. To update, change
-`rev` and run `cargo update --workspace`. To remove Warded, delete the dependency and its uses,
-then update the lockfile. Restore a tested `rev` and update the lockfile again to recover.
+Get the SHA with `git rev-parse HEAD` in the checkout you tested and run `cargo build` to resolve
+it. To update to another commit, change `rev` and run `cargo update --workspace`. The README on
+`main` and the [Unreleased changelog] describe changes since the published version.
 
 ## Match and select
 
@@ -173,7 +196,7 @@ negotiation. Cloning a `Head` starts a fresh cache.
 Selection scans routes linearly. Put applicable cheap conditions before negotiation, use shared
 offers only when their applicability is genuinely shared, and set field limits appropriate to the
 application. Near-limit fields across many independent predicates can be expensive; see the
-[measurement and decision](./docs/beta-assessment.md). The first release makes no throughput promise.
+[measurement and decision]. The first release makes no throughput promise.
 
 ## Tower integration and scope
 
@@ -189,7 +212,7 @@ guarantee emptiness. `RequestRouter` has no such bound, including with a custom 
 
 Normal `DispatchError<E>` carries no body and can convert to Tower's boxed error when `E` has the
 necessary bounds. Infallible hosts such as Axum still need an explicit error-to-response boundary;
-the [server example](./examples/server.rs) demonstrates it, trusted cleartext context, preserved
+the [server example] demonstrates it, trusted cleartext context, preserved
 HEAD/405 behavior, and outer `Vary` policy. Router clones share an immutable service table and only
 clone the selected destination for dispatch. Editing a shared clone copies the table.
 
@@ -198,25 +221,39 @@ replaces them, while an inner fallback retains outer metadata. Preserve parent m
 separate application extension when needed.
 
 Default features are `tower` and `negotiation`. Disable defaults for standalone matching, or enable
-either feature independently. See the [design and limits](./docs/design.md), the runnable
-[example](./examples/basic.rs), and [verification commands](./docs/verification.md). Generate the API
-reference with `cargo doc --all-features --no-deps --open`.
+either feature independently. See the [API reference], [design and limits], runnable
+[basic example], and [verification commands].
 
 Report defects through [GitHub issues](https://github.com/viell-dev/slop-warded-router/issues), with
 the commit, Rust version, features, synthetic request, expected result, and actual result. Report
-suspected vulnerabilities through [GitHub's private route](./SECURITY.md).
-Security fixes land on `main`. The maintained [Leptos application](./integration/leptos/README.md)
+suspected vulnerabilities through [GitHub's private reporting form].
+Security fixes land on `main`. The maintained [Leptos application]
 tests one real SSR/hydration/form/streaming workflow over Linux HTTP/1.1 with three browser engines.
 Windows/Linux library execution is separate evidence. The tested hosting boundary is HTTP/1.1;
 HTTP/2, HTTP/3 and real TLS/proxy integration remain unverified. The application supplies
 authentication and automatic protocol policy. The performance measurements are diagnostic.
 
-The [release procedure](./docs/release.md) defines beta, RC and stable gates. Integration requires
+The [release procedure](https://github.com/viell-dev/slop-warded-router/blob/main/docs/release.md)
+defines beta, RC and stable gates. Integration requires
 the Windows/Linux `ci` and `leptos-fixture` checks on `main`. Stable 0.1.x preserves
 the public API, documented semantics, feature names and Rust minimum 1.99.1; intentional breaking
-changes belong in 0.2.0. RC and stable each require explicit owner approval after review, and stable
-also requires actual human library use. Git source, this README and locally built rustdoc are the
-current distribution and documentation channels.
+changes belong in 0.2.0. RC and stable each require explicit owner approval after review. The
+owner's hands-on session is required before the first RC, with independent agent usability reviews
+for later candidates.
 
 Licensed MIT OR Apache-2.0, at the recipient's option. See
-[LICENSE-MIT](./LICENSE-MIT) and [LICENSE-APACHE](./LICENSE-APACHE).
+[LICENSE-MIT] and [LICENSE-APACHE].
+
+[crates.io publication]: https://crates.io/crates/warded/0.1.0-beta.3
+[API reference]: https://docs.rs/warded/0.1.0-beta.3
+[source tag]: https://github.com/viell-dev/slop-warded-router/tree/0.1.0-beta.3
+[Unreleased changelog]: https://github.com/viell-dev/slop-warded-router/blob/main/CHANGELOG.md#unreleased
+[GitHub's private reporting form]: https://github.com/viell-dev/slop-warded-router/security/advisories/new
+[measurement and decision]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/docs/beta-assessment.md
+[server example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/examples/server.rs
+[basic example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/examples/basic.rs
+[design and limits]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/docs/design.md
+[verification commands]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/docs/verification.md
+[Leptos application]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/integration/leptos/README.md
+[LICENSE-MIT]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/LICENSE-MIT
+[LICENSE-APACHE]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/LICENSE-APACHE

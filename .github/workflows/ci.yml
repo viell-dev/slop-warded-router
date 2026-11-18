@@ -30,6 +30,9 @@ jobs:
       - name: Run the repository verification entry point
         shell: bash
         run: bash scripts/check.sh
+      - name: Test the release verification and index checks
+        if: runner.os == 'Linux'
+        run: bash .github/scripts/release-test.sh
 
   dependencies:
     runs-on: ubuntu-latest

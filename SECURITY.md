@@ -1,8 +1,8 @@
 # Security policy
 
-Warded is available as git source in its `0.1.0` prerelease line. Security fixes are made on `main`;
-there are no separately maintained release branches. Pin a tested commit `rev` and update it to
-pick up a fix.
+Warded is distributed through crates.io in its `0.1.0` prerelease line. Security fixes land on
+`main` and ship in a new version. Update to that release, or pin a tested commit `rev` to use
+the fix before publication.
 
 ## Reporting a vulnerability
 

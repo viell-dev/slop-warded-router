@@ -42,16 +42,16 @@ verification and honest compatibility claims are essential.
 Use SemVer prerelease stages. Alpha is for changes to scope and core behavior. Beta begins when the
 agreed feature scope is implemented and the beta gates pass. RC identifies a specific source
 candidate intended to become the stable release. See the [release procedure](./docs/release.md).
-Before stable, prepare install instructions and synthetic tasks with expected outcomes, assign an
-open human-testing issue, and record actual use of a representative candidate and the resolution
-of blockers. Repeat focused human testing before stable distribution after substantial workflow
-changes.
+Before the first RC, record the owner's hands-on use of the published candidate in
+[#26](https://github.com/viell-dev/slop-warded-router/issues/26) and resolve its blockers.
+Independent agent usability reviews cover later candidates and substantial workflow changes.
 
 For the first `0.1.0` release, [issue #8](https://github.com/viell-dev/slop-warded-router/issues/8)
 records delegated scope agreement and stage evidence. Beta needs that agreement and fulfilled
 criteria. RC and stable each require the owner's explicit approval after review of a concrete
 proposal/candidate; review agreement alone does not authorize either transition.
 
-Publishing packages or starting a new distribution channel requires explicit authorization. Keep
-unreleased documentation distinct from installable behavior. Verify exact source, required CI,
-artifacts, licenses, installation, and published downloads before declaring a release complete.
+Publish approved releases on crates.io with docs.rs as the versioned API reference. A new channel
+requires explicit authorization. Keep unreleased documentation distinct from installable behavior.
+Verify exact source, required CI, artifacts, licenses, registry installation and published
+documentation before declaring a release complete.
