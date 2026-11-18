@@ -225,8 +225,9 @@ stale() {
     expect_failure 'must pin and name only' text_check
 }
 
+fence='```'
 absolute ''
-absolute '\n```md\nSee [x](docs/x.md)\n```\n'
+absolute "\n${fence}md\nSee [x](docs/x.md)\n${fence}\n"
 absolute '\n~~~\n[x](docs/x.md)\n~~~\n'
 absolute '\n[Guide](<https://example.com/guide>)\n'
 absolute '\n[x](https://example.com "Title")\n'
@@ -236,8 +237,9 @@ relative '\n[ref]: docs/design.md\n'
 relative '\n[guide]:\n  docs/guide.md\n'
 relative '\n[Guide](<docs/guide.md>)\n'
 relative '\n![logo](logo.png)\n'
-stale readme_append '\n```toml\nwarded = { version = "=0.0.0-stale" }\n```\n'
-stale readme_append '\n```toml\nwarded = { default-features = false, version = "=0.0.0-stale" }\n```\n'
+stale readme_append "\n${fence}toml\nwarded = { version = \"=0.0.0-stale\" }\n${fence}\n"
+stale readme_append \
+    "\n${fence}toml\nwarded = { default-features = false, version = \"=0.0.0-stale\" }\n${fence}\n"
 stale readme_append '\nSee https://docs.rs/warded/0.0.0-stale.\n'
 stale sed -i "s/^warded = \"=$release_version\"\$/warded = \"0.1\"/" "$scratch/text/README.md"
 stale sed -i "s/^## $release_version\$/## 0.0.0-stale/" "$scratch/text/CHANGELOG.md"
