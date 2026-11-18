@@ -130,8 +130,8 @@ rm -- "$index_output"
 
 Only `published=false` permits the upload. A matching existing version means the upload already
 succeeded. Investigate any checksum mismatch before proceeding. `cargo package` has just built and
-verified these bytes, so upload without repeating the build, as the release workflow does. This
-keeps dependency build scripts away from the token, and the confirm step checks the bytes:
+verified these bytes, so upload without repeating the build, as the release workflow does. The
+confirm step then checks the published bytes:
 
 ```sh
 cargo publish --locked --no-verify --registry crates-io --target-dir target
