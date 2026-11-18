@@ -2,14 +2,22 @@
 set -euo pipefail
 
 candidate="${1:-}"
-if [[ $# != 1 || ! "$candidate" =~ ^[0-9a-f]{40}$ ]]; then
-    echo "Usage: bash scripts/check-clean-consumer.sh <pushed 40-character commit SHA>" >&2
+baseline="${2-59710b07569ac065cf97f2b3c7f4a84389489c44}"
+if [[ $# -gt 2 || ! "$candidate" =~ ^[0-9a-f]{40}$ || ! "$baseline" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "Usage: bash scripts/check-clean-consumer.sh <pushed commit SHA> [previous release SHA]" >&2
     exit 2
 fi
 
 repository=https://github.com/viell-dev/slop-warded-router
-beta1=59710b07569ac065cf97f2b3c7f4a84389489c44
-consumer="$(mktemp -d "${TMPDIR:-/tmp}/warded-beta2-consumer.XXXXXXXX")"
+source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Use the README's installation snippet so the selector build tests what users copy.
+dependencies="$(awk '
+    { sub(/\r$/, "") }
+    snippet && /^```$/ { exit }
+    snippet { print }
+    /^```toml$/ { snippet = 1 }
+' "$source_dir/README.md")"
+consumer="$(mktemp -d "${TMPDIR:-/tmp}/warded-source-consumer.XXXXXXXX")"
 trap 'rm -rf -- "$consumer"' EXIT
 cd "$consumer"
 export CARGO_TARGET_DIR="$consumer/target"
@@ -26,16 +34,17 @@ TOML
     if [[ $# == 0 ]]; then
         return
     fi
-    cat >> Cargo.toml <<TOML
+    cat >> Cargo.toml <<'TOML'
 
 [features]
 default = ["warded/default", "dep:axum", "dep:tokio", "dep:tower"]
 tower = ["warded/tower", "dep:axum", "dep:tokio", "dep:tower"]
 negotiation = ["warded/negotiation"]
 
-[dependencies]
-warded = { git = "$repository", rev = "$1", default-features = false }
-http = "=1.5.0"
+TOML
+    printf '%s\n' "$dependencies" |
+        sed "s/rev = \"<full commit SHA>\"/rev = \"$1\", default-features = false/" >> Cargo.toml
+    cat >> Cargo.toml <<'TOML'
 axum = { version = "=0.8.9", default-features = false, features = ["http1", "tokio"], optional = true }
 tokio = { version = "=1.54.1", features = ["macros", "rt"], optional = true }
 tower = { version = "=0.5.3", features = ["util"], optional = true }
@@ -149,10 +158,10 @@ RUST
 rustc --version --verbose
 cargo --version
 
-echo "Installing the beta.1 baseline"
-write_manifest "$beta1"
+echo "Installing the update baseline $baseline"
+write_manifest "$baseline"
 cargo generate-lockfile
-assert_locked_revision "$beta1"
+assert_locked_revision "$baseline"
 cargo run --locked
 
 echo "Updating the existing consumer lockfile to $candidate"

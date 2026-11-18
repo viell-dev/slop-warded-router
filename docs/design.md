@@ -165,10 +165,12 @@ stop on malformed input.
 
 The defaults allow 64 KiB of combined field bytes, including separators between repeated lines,
 and 1024 nonempty list members. The inherited caps are 16 empty list elements and 64 parameters
-per member, including `q`. These bounds leave room for long preference lists while limiting work
-per negotiation operation. A deployment can set smaller `Limits` values to fit its workload and
-use cheap applicable conditions before parsing. Shared complete offer sets can reuse the computed
-choice on a head.
+per member, including `q`. These bounds limit accepted input size per operation. Work also
+depends on how many ranges, truncations and offers are compared and how many predicates the
+request reaches. Each zero-quality lookup exclusion check compares an offer against a single
+range in time linear in the offer length. A deployment can set smaller `Limits` values to fit its
+workload and use cheap applicable conditions before parsing. Shared complete offer sets can
+reuse the computed choice on a head.
 
 After the 0.1 compatibility freeze, tighter defaults could turn a previously eligible route into
 a fallback or a strict matching error. Changing malformed-as-miss to an error could stop later

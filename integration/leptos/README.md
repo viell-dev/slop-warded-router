@@ -95,9 +95,10 @@ is not a replacement for either.
 [Leptos fixture](../../.github/workflows/leptos-fixture.yml) runs on Ubuntu 24.04 for affected
 pull requests and pushes to `main`, for unprefixed version tags, and via manual dispatch. On every
 pull request a short job decides whether library source, the root manifest, Cargo configuration,
-the toolchain file, the fixture (except its Markdown) or the workflow changed; the required
-`leptos-fixture` check then needs a passing fixture run, or a skipped run when nothing it uses
-changed. See the [release procedure](../../docs/release.md#before-rc) for the candidate gates.
+the toolchain file, the fixture (except its Markdown), the workflow or its path script changed.
+The required `leptos-fixture` check needs a passing fixture run for an affected revision or a
+skip with an explicit unaffected result. See the
+[release procedure](../../docs/release.md#before-rc) for the candidate gates.
 Hosted jobs build from the digest-pinned base and use fresh container storage. They stream the
 source archive into the container and copy reports out as the host user before removing the
 container. This keeps source and output off shared volumes and works with rootless Docker.
@@ -105,7 +106,8 @@ Available evidence is uploaded on success and failure and retained for 14 days. 
 from the Dockerfile for each hosted job. Package downloads during image and fixture setup are still
 environment inputs; the Sass version that cargo-leptos downloads is pinned in the Dockerfile.
 
-The browser environment is Linux over localhost cleartext HTTP/1.1. This establishes one application,
+The fixture enables only Warded's `tower` feature. The browser environment is Linux over
+localhost cleartext HTTP/1.1. This establishes one application,
 not all Leptos modes/extractors or framework-wide compatibility. Tower readiness and cancellation,
 and QUERY/custom-method body preservation, have separate library/HTTP checks. HTTP/2, HTTP/3,
 real TLS/proxy trust, authentication, cache behavior and the companion server remain outside this

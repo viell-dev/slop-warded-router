@@ -28,6 +28,7 @@ To use Warded in another Cargo package, pin the full commit SHA of the source yo
 ```toml
 [dependencies]
 warded = { git = "https://github.com/viell-dev/slop-warded-router", rev = "<full commit SHA>" }
+http = "1.5"
 ```
 
 Get the SHA with `git rev-parse HEAD` in the checkout you tested. Run `cargo build` to resolve

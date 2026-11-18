@@ -39,11 +39,13 @@ verification and honest compatibility claims are essential.
 
 ## Releases
 
-Until a stable goal is agreed, keep builds in alpha with SemVer prerelease versions. No stable
-release may bypass real human use of a representative candidate: prepare install instructions,
-synthetic tasks and expected outcomes, assign an open human-testing issue, and record the actual
-report and resolution of blockers. Automated checks and agent review do not satisfy that gate.
-Repeat focused human testing before stable distribution after substantial workflow changes.
+Use SemVer prerelease stages. Alpha is for changes to scope and core behavior. Beta begins when the
+agreed feature scope is implemented and the beta gates pass. RC identifies a specific source
+candidate intended to become the stable release. See the [release procedure](./docs/release.md).
+Before stable, prepare install instructions and synthetic tasks with expected outcomes, assign an
+open human-testing issue, and record actual use of a representative candidate and the resolution
+of blockers. Repeat focused human testing before stable distribution after substantial workflow
+changes.
 
 For the first `0.1.0` release, [issue #8](https://github.com/viell-dev/slop-warded-router/issues/8)
 records delegated scope agreement and stage evidence. Beta needs that agreement and fulfilled

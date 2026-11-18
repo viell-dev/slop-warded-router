@@ -2,11 +2,11 @@
 //! No throughput promise, cross-router comparison, or CI timing threshold.
 
 use http::Request;
-use std::{hint::black_box, time::Instant};
+use std::{fmt::Write, hint::black_box, time::Instant};
 use warded::{
     Head, Selector,
     matchers::path,
-    negotiation::{Offers, accepts_media_type},
+    negotiation::{LanguageMatching, Offers, accepts_media_type},
 };
 
 fn measure(
@@ -96,4 +96,34 @@ fn main() {
             }
         }
     }
+
+    measure_lookup_exclusion();
+}
+
+fn measure_lookup_exclusion() {
+    let languages = ["en", "fr", "de"];
+    let offers = Offers::languages(languages, LanguageMatching::Lookup).unwrap();
+    let mut routes = Selector::new();
+    for (index, language) in languages.iter().enumerate() {
+        routes = routes.route(offers.selected(language).unwrap(), index);
+    }
+
+    // Exercise a near-limit list with exclusions and a known fallback.
+    let mut field = String::from("en-CA,fr-CA;q=0.8,en-US;q=0");
+    let subtags = "-sample".repeat(70);
+    for variant in 0..127 {
+        write!(field, ",de-DE-x-{variant:03x}{subtags};q=0").unwrap();
+    }
+    assert!((64_000..=65_536).contains(&field.len()));
+
+    let request = Request::builder()
+        .header("accept-language", &field)
+        .body(())
+        .unwrap();
+    let mean = measure(&routes, &request, Some(1), false, 20);
+    println!(
+        "language-lookup,{},{},exclusion,20,{mean:.3}",
+        languages.len(),
+        field.len()
+    );
 }

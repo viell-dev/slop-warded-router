@@ -113,9 +113,11 @@ are unchanged from the earlier pinned snapshots: Axum file blob
 Actix file blob `0d9cabab29ec3be9eb4776f369249c19cfcebb86`, latest file commit
 [`9fb5964`](https://github.com/actix/actix-web/blob/9fb59640aebc6a7c87bb79ead55b5730a5425ba4/actix-router/src/resource.rs).
 
-The maintained Leptos fixture supplies real framework evidence for fallback, explicit method policy,
-dynamic value rejection and selected failure; its extra rejection route prevents the framework's
-renderer from re-admitting an invalid value. Do not import Axum's automatic method/nesting policy
+The maintained Leptos fixture supplies real framework evidence for fallback, explicit method
+policy, dynamic value rejection and selected failure. Its rejection route returns a plain 404
+for invalid values in the exact `/users/{value}` shape. With a trailing slash, `/users/-1/` reaches
+the Leptos fallback and returns 404 while rendering `-1` in the user element.
+Do not import Axum's automatic method/nesting policy
 or Actix's regex grammar and definition panics. The seeded corpus adds raw reachable inputs and
 matching/definition/cache consistency checks without copying foreign test bodies or datasets.
 
