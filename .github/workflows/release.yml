@@ -33,6 +33,8 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.1 --profile minimal
       - name: Verify tag, main ancestry and required checks
         id: release
         env:
@@ -48,13 +50,14 @@ jobs:
       contents: read
       id-token: write
     env:
-      CARGO_HTTP_USER_AGENT: warded-release
       RELEASE_VERSION: ${{ needs.verify.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.verify.outputs.commit }}
           persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.1 --profile minimal
       - name: Build and hash the Cargo package
         id: package
         run: |
@@ -73,11 +76,13 @@ jobs:
       - name: Authenticate to crates.io
         id: auth
         uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+      # The package step built and verified these bytes without the token. Skipping the repeated
+      # build keeps dependency build scripts away from the token; the next step checks the bytes.
       - name: Publish the verified version
         if: steps.index.outputs.published == 'false'
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish --locked --registry crates-io --target-dir target
+        run: cargo publish --locked --no-verify --registry crates-io --target-dir target
       - name: Confirm the published checksum
         env:
           PACKAGE_SHA256: ${{ steps.package.outputs.checksum }}

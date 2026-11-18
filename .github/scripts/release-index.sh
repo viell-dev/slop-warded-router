@@ -46,7 +46,13 @@ case "$mode" in
 esac
 
 for ((attempt = 1; attempt <= attempts; attempt++)); do
-    published_checksum="$(index_checksum)"
+    # The check before uploading fails closed. After an upload, a read failure only means "not
+    # yet": the loop retries, and a different checksum still fails.
+    if ! published_checksum="$(index_checksum)"; then
+        echo "Could not read the crates.io index" >&2
+        [[ "$mode" == confirm ]] || exit 1
+        published_checksum=missing
+    fi
     if [[ "$published_checksum" != missing ]]; then
         if [[ "$published_checksum" != "$local_checksum" ]]; then
             echo "Warded $version already has a different checksum: $published_checksum" >&2
@@ -68,5 +74,5 @@ for ((attempt = 1; attempt <= attempts; attempt++)); do
     fi
 done
 
-echo "Warded $version did not appear in the index after publishing" >&2
+echo "Warded $version did not appear in a readable index after publishing" >&2
 exit 1

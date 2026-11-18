@@ -29,10 +29,11 @@ routing semantics, feature names and Rust minimum 1.99.1. Intentional breaking c
   [#26](https://github.com/viell-dev/slop-warded-router/issues/26). Publish `0.1.0-beta.3` as the
   installable candidate for that session. Record the owner's report, resolve blockers and return
   to [#25](https://github.com/viell-dev/slop-warded-router/issues/25) for RC approval.
-- **Stable** requires separate explicit owner approval after review. After the hands-on beta,
-  independent agent usability reviews cover later candidates and substantial workflow changes.
-  Review the published install path, main tasks, documentation and recovery, and resolve blockers
-  before promotion. The owner's later comments or issues are welcome as optional feedback.
+- **Stable** requires separate explicit owner approval after review. The hands-on session is the
+  human use the stable gate requires while RC and stable stay representative of the tested build.
+  After it, independent agent usability reviews cover later candidates and substantial workflow
+  changes. Review the published install path, main tasks, documentation and recovery, and resolve
+  blockers before promotion. The owner's later comments or issues are welcome as optional feedback.
   [#25](https://github.com/viell-dev/slop-warded-router/issues/25) records this update to the
   original human-use gate in [#8](https://github.com/viell-dev/slop-warded-router/issues/8).
 
@@ -53,10 +54,10 @@ routing semantics, feature names and Rust minimum 1.99.1. Intentional breaking c
 
 ## Before RC
 
-Finish beta findings and compatibility work. Verify the [private security reporting route](../SECURITY.md).
-Run the verification below and independently review the exact RC proposal, including evidence
-limits and remaining findings. Link the owner's hands-on report and ask for explicit approval in
-the assigned owner issue before promoting.
+Finish beta findings and compatibility work. Verify the [private security reporting
+route](../SECURITY.md). Run the verification below and independently review the exact RC proposal,
+including evidence limits and remaining findings. Link the owner's hands-on report and ask for
+explicit approval in the assigned owner issue before promoting.
 
 Every pull request needs `ci` and `leptos-fixture`. The latter runs the full fixture when library
 source, the root `Cargo.toml`, Cargo configuration, the Rust toolchain, non-Markdown fixture
@@ -69,10 +70,11 @@ and checks both compilation modes.
 ## Verify the exact release commit
 
 1. Prepare a release PR with the version in Cargo.toml and both lockfiles, the README status,
-   install commands and versioned links, and the changelog. For `0.1.0-beta.3` the release notes
-   link the [hands-on request](https://github.com/viell-dev/slop-warded-router/issues/26). Review
-   the complete PR and pass required CI on its final head. After integration, verify the commit
-   and tree against the reviewed head and refresh any evidence invalidated by integration.
+   install commands and versioned links, and the changelog; `scripts/check.sh` fails if they name
+   another version. For `0.1.0-beta.3` the release notes link the [hands-on
+   request](https://github.com/viell-dev/slop-warded-router/issues/26). Review the complete PR and
+   pass required CI on its final head. After integration, verify the commit and tree against the
+   reviewed head and refresh any evidence invalidated by integration.
 2. Run [repository verification](./verification.md) on an archive of the release commit.
    Check the package list and run `cargo publish --dry-run --locked` from a clean Git checkout
    of the exact commit. Run the git-source clean-consumer check against that pushed commit.
@@ -86,15 +88,15 @@ and checks both compilation modes.
 
 Package on Linux with the version in `rust-toolchain.toml`. Use a clean Git checkout for the
 release artifact so Cargo records the source commit in `.cargo_vcs_info.json`. A package from a
-source archive omits that provenance and can have a different checksum. Keep Cargo's build
-verification enabled.
+source archive omits that provenance and can have a different checksum. A rebase merge gives the
+release a new commit, so package the merged `main` commit rather than the reviewed head.
 
 ## First publish (0.1.0-beta.3)
 
 The first version must use a crates.io API token authorized to create a crate. This is a one-time
-`cargo publish` from a Cargo session signed in to crates.io. Use a Linux checkout with the pinned
-toolchain and a working linker. The lead publishes after the release PR merges and the required
-checks pass on its exact `main` commit.
+`cargo publish` from a Cargo session signed in to crates.io. A maintainer publishes after the
+release PR merges and the required checks pass on its exact `main` commit. Package and verify on
+Linux with the pinned toolchain and a working linker.
 
 Use Bash with GitHub CLI access and `jq`. Set `release_commit` to the verified full SHA on `main`.
 Fetch `main` and check out that commit in a clean Git checkout. Create the annotated
@@ -117,7 +119,6 @@ Continue only after the gate succeeds. With GitHub CLI access and the release co
 package and compare the index before uploading:
 
 ```sh
-export CARGO_HTTP_USER_AGENT=warded-release
 cargo package --locked --target-dir target
 checksum="$(sha256sum "target/package/warded-$version.crate" | cut -d ' ' -f 1)"
 printf 'Warded %s SHA-256 %s\n' "$version" "$checksum"
@@ -135,12 +136,21 @@ cargo publish --locked --registry crates-io --target-dir target
 bash .github/scripts/release-index.sh confirm "$version" "$checksum"
 ```
 
+If the signed-in Cargo session is on a system that cannot build the package, upload from a clean
+checkout of the same commit there only after `cargo package --locked --no-verify` reproduces the
+verified Linux checksum. Then run `cargo publish --locked --no-verify --registry crates-io` and
+confirm the index checksum as above.
+
 ## Trusted publishing
 
 After the crate exists, create the GitHub environment `crates-io`. Under **Deployment branches and
 tags**, choose **Selected branches and tags**, add a **Tag** rule `[0-9]*.[0-9]*.[0-9]*`, and allow
-no branch deployments. Keep authority to create release tags with trusted maintainers. No registry
-token secret is needed.
+no branch deployments. No registry token secret is needed.
+
+Pushing a version tag is the release decision: any such tag runs its own commit's workflow in this
+environment, and the gate then requires a verified `main` commit. Keep tag creation with trusted
+maintainers. A repository ruleset blocks updates and deletions of version tags, so a published tag
+cannot move.
 
 In the crate's [Trusted Publishing settings](https://crates.io/docs/trusted-publishing), add a
 GitHub Actions publisher with owner `viell-dev`, repository `slop-warded-router`, workflow filename
@@ -166,6 +176,8 @@ The workflow uploads only when the version is missing, then confirms the checksu
   `bash scripts/check-clean-consumer.sh --registry 0.1.0-beta.3`. It tests fresh installation,
   an update from source beta.2, all four feature combinations, rustdoc, removal and recovery.
   Pass the previous published version for later registry-to-registry updates.
+- Point the repository's About website at the [docs.rs reference](https://docs.rs/warded) once it
+  builds, so the homepage leads to the current release documentation.
 - Record evidence in the release tracker. Mark the beta.3 hands-on request ready with verified
   download, documentation and tag links when these checks pass. Keep the request open until the
   owner's report and resulting work are handled.
@@ -178,12 +190,14 @@ upload. A mismatch blocks the release. If a required check is pending, let it fi
 rerunning; if a check failed, diagnose it and retest the release commit or prepare a corrected
 release with a new version.
 
-While trusted publishing is being established, an authorized maintainer can use a crates.io API
-token scoped to publishing Warded updates and the manual commands above for an absent version.
-Require the same exact-commit checks and post-publication verification. Keep tokens out of the
-repository and Actions secrets.
+Later versions publish through the workflow. If it cannot publish a verified version, for example
+because the trusted-publisher configuration fails, fix the cause and rerun it. A manual token
+upload of such a version needs the owner's recorded go-ahead, the same exact-commit checks and
+post-publication verification. Keep tokens out of the repository and Actions secrets.
 
-If a published build must be withdrawn, use `cargo yank --version "$version" warded` with an
-authorized Cargo session. Yanking prevents new resolutions but existing lockfiles may continue to
-use it. Record the impact and ship a corrected version. Never reuse a published version, replace
-its bytes, or move a published tag. Documentation fixes use the same next-version procedure.
+If a published build must be withdrawn, the owner yanks it on crates.io or with
+`cargo yank --version "$version" warded` from a session whose token has the yank scope; the
+publishing credentials do not include it. Yanking prevents new resolutions, but existing lockfiles
+may continue to use it. Record the impact and ship a corrected version. Never reuse a published
+version, replace its bytes, or move a published tag. Documentation fixes use the same next-version
+procedure.

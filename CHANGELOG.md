@@ -11,6 +11,7 @@ Changes on `main` appear here before the next release.
   [hands-on test in #26](https://github.com/viell-dev/slop-warded-router/issues/26).
 - Limit the crate package to the library, runnable examples, tests, benchmark, README and licenses.
   Add exact-commit release checks, checksum verification and trusted publishing for later versions.
+  Require the README install pin, version-pinned links and changelog heading to match the package.
 - Document registry installation, updates, removal and recovery, and add a clean registry-consumer
   check. Library behavior is unchanged from source beta.2.
 
