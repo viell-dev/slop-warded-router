@@ -194,4 +194,57 @@ published "$TEST_VERSION" "$TEST_CHECKSUM" | jq -c '.name = "other"' > "$TEST_IN
 expect_failure 'invalid Warded index response' index check "$TEST_VERSION" "$TEST_CHECKSUM"
 published "$TEST_VERSION" "$(printf '%064d' 1 | tr 0 A)" > "$TEST_INDEX"
 expect_failure 'invalid Warded index response' index check "$TEST_VERSION" "$TEST_CHECKSUM"
-echo "Release verification and index tests passed"
+
+# The release text check runs on copies of the repository's README and changelog.
+root="$(cd "$scripts/../.." && pwd)"
+release_version="$(sed -nE 's/^version = "([^"]+)"$/\1/p' "$root/Cargo.toml" | head -n 1)"
+text_case() {
+    rm -rf -- "$scratch/text"
+    mkdir "$scratch/text"
+    cp "$root/README.md" "$root/CHANGELOG.md" "$scratch/text/"
+}
+text_check() {
+    (cd "$scratch/text" && bash "$root/scripts/check-release-text.sh" "$release_version")
+}
+readme_append() {
+    printf '%b' "$1" >> "$scratch/text/README.md"
+}
+absolute() {
+    text_case
+    readme_append "$1"
+    text_check
+}
+relative() {
+    text_case
+    readme_append "$1"
+    expect_failure 'README links must be absolute' text_check
+}
+stale() {
+    text_case
+    "$@"
+    expect_failure 'must pin and name only' text_check
+}
+
+absolute ''
+absolute '\n```md\nSee [x](docs/x.md)\n```\n'
+absolute '\n~~~\n[x](docs/x.md)\n~~~\n'
+absolute '\n[Guide](<https://example.com/guide>)\n'
+absolute '\n[x](https://example.com "Title")\n'
+absolute "\nSee https://docs.rs/warded/$release_version.\n"
+relative '\nSee [design](./docs/design.md).\n'
+relative '\n[ref]: docs/design.md\n'
+relative '\n[guide]:\n  docs/guide.md\n'
+relative '\n[Guide](<docs/guide.md>)\n'
+relative '\n![logo](logo.png)\n'
+stale readme_append '\n```toml\nwarded = { version = "=0.0.0-stale" }\n```\n'
+stale readme_append '\n```toml\nwarded = { default-features = false, version = "=0.0.0-stale" }\n```\n'
+stale readme_append '\nSee https://docs.rs/warded/0.0.0-stale.\n'
+stale sed -i "s/^warded = \"=$release_version\"\$/warded = \"0.1\"/" "$scratch/text/README.md"
+stale sed -i "s/^## $release_version\$/## 0.0.0-stale/" "$scratch/text/CHANGELOG.md"
+text_case
+rm "$scratch/text/README.md"
+expect_failure 'README.md' text_check
+text_case
+rm "$scratch/text/CHANGELOG.md"
+expect_failure 'CHANGELOG.md' text_check
+echo "Release verification, index and release text tests passed"
