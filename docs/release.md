@@ -1,101 +1,189 @@
-# Source release procedure
+# Release procedure
 
-The first-release goal and delegated agreement are recorded in
-[issue #8](https://github.com/viell-dev/slop-warded-router/issues/8). The stable 0.1 line is the
-router, capture predicates, bounded negotiation, optional Tower/Axum integration and one
-representative Leptos application. The server, indexing, typed query/capture storage and universal
-adapters stay outside it. Stable 0.1.x preserves the public API, documented routing semantics,
-feature names and Rust minimum 1.99.1; intentional breaking changes go to 0.2.0.
+Distribute Warded through [crates.io](https://crates.io/crates/warded). The
+[docs.rs API reference](https://docs.rs/warded) and README are the documentation site. Rustdoc
+provides searchable, versioned API documentation built from the package. The README covers
+installation, examples, feature selection and support limits. A separate site would duplicate
+these surfaces for a library of this size.
 
-## Beta
+Link to docs.rs for the exact published version, using the latest installable release as the
+public default. Check the version selector when working with a prerelease. The README on `main`
+and the [Unreleased changelog](../CHANGELOG.md#unreleased) identify behavior awaiting publication.
+Released READMEs link behavior guides and examples at their source tag. Corrections to released
+documentation ship in the next version. To try unreleased work, use the README's git dependency
+with a full commit SHA and build rustdoc from that revision.
 
-Beta requires all four agreed gates, with findings reconciled rather than merely counted as votes:
+## Release stages
 
-1. Complete declared request-head routing, refinement, negotiation and dispatch behavior; no
-   unresolved release-blocking correctness/security defect. Explicitly disposition dependency and
-   alpha constraints in [#4](https://github.com/viell-dev/slop-warded-router/issues/4) and
+The first-release scope is agreed in [#8](https://github.com/viell-dev/slop-warded-router/issues/8).
+It covers the router, capture predicates, bounded negotiation, optional Tower/Axum integration and
+one representative Leptos application. The server, indexing, typed query/capture storage and
+universal adapters are outside that scope. Stable 0.1.x preserves the public API, documented
+routing semantics, feature names and Rust minimum 1.99.1. Intentional breaking changes go to 0.2.0.
+
+- **Alpha** allows changes to scope, core behavior and workflows.
+- **Beta** starts when the agreed feature scope and gates below are met, then focuses on fixes and
+  polish. A material change to the first-release goal needs an owner decision.
+- **RC** identifies a concrete candidate intended to become stable. The owner must explicitly
+  approve the first RC after review and the hands-on session in
+  [#26](https://github.com/viell-dev/slop-warded-router/issues/26). Publish `0.1.0-beta.3` as the
+  installable candidate for that session. Record the owner's report, resolve blockers and return
+  to [#25](https://github.com/viell-dev/slop-warded-router/issues/25) for RC approval.
+- **Stable** requires separate explicit owner approval after review. After the hands-on beta,
+  independent agent usability reviews cover later candidates and substantial workflow changes.
+  Review the published install path, main tasks, documentation and recovery, and resolve blockers
+  before promotion. The owner's later comments or issues are welcome as optional feedback.
+  [#25](https://github.com/viell-dev/slop-warded-router/issues/25) records this update to the
+  original human-use gate in [#8](https://github.com/viell-dev/slop-warded-router/issues/8).
+
+### Beta gates
+
+1. Complete declared request-head routing, refinement, negotiation and dispatch behavior. Resolve
+   release-blocking correctness and security defects and disposition dependencies and alpha
+   constraints in [#4](https://github.com/viell-dev/slop-warded-router/issues/4) and
    [#5](https://github.com/viell-dev/slop-warded-router/issues/5).
-2. A representative fixture on the candidate: the bounded workflows in its
-   [README](../integration/leptos/README.md), complete exact counts, no skips/retries/flakes, a
-   deliberately broken predicate, retained logs and success/failure cleanup. Run the seeded input
-   corpus in required CI and retain failing inputs. Record affected-change/release trigger policy.
-3. A consumer-informed API freeze assessment and one correctness-checked measurement that decides
-   whether indexing needs an API change before the freeze. No indexing implementation or arbitrary
-   throughput threshold is required. See the [assessment](./beta-assessment.md).
-4. Accurate public claims, targeted upstream-test refresh, the Windows/Linux feature/package
-   matrix and proportionate independent review of the coherent candidate on its exact revision.
-
-Promote through a PR setting `0.1.0-beta.N` in Cargo/lockfiles, changelog and README, with package
-commands deriving the version rather than hardcoding paths. Keep `publish = false`. The review and
-required CI must cover the final head. After integration, either rerun candidate evidence on the
-`main` commit or verify that its complete tree is identical to the tested/reviewed head. Record
-that link; rebase merges can change commit IDs. An optional annotated unprefixed tag may pin the
-existing git-source channel. Do not create a crate publication, GitHub Release or new channel.
-
-The owner authorized beta once the agreed gates are met. No additional scope approval is needed
-within that goal. Beta is for fixes and polish; a material goal change needs a new scope decision.
+2. A representative fixture on the candidate with the workflows and exact counts in the
+   [Leptos README](../integration/leptos/README.md), without skips, retries or flakes. Require
+   the broken-predicate control, retained reports and success/failure cleanup. Run the seeded input
+   corpus in CI and retain failing inputs.
+3. A consumer-informed API freeze assessment and correctness-checked measurement to decide whether
+   indexing needs an API change before the freeze. See the [assessment](./beta-assessment.md).
+4. Accurate public claims, targeted upstream-test refresh, the Windows/Linux feature and package
+   matrix, and proportionate independent review of the coherent candidate on its exact revision.
 
 ## Before RC
 
-RC requires the owner's **explicit approval after review** of a concrete proposal/candidate.
-Independent agent agreement alone does not authorize this transition. Before requesting it:
+Finish beta findings and compatibility work. Verify the [private security reporting route](../SECURITY.md).
+Run the verification below and independently review the exact RC proposal, including evidence
+limits and remaining findings. Link the owner's hands-on report and ask for explicit approval in
+the assigned owner issue before promoting.
 
-- Finish beta findings and compatibility constraints. Run the [verification procedure](./verification.md)
-  on an archive of the exact revision, including packaged examples and dependency policy. Run the
-  clean-consumer check against the same pushed commit and record the install, update, removal,
-  recovery, features and rustdoc results. Record the commit, tree, toolchain, checks and artifacts
-  in the PR. Verify the [GitHub private vulnerability-reporting route](../SECURITY.md). Security
-  fixes for the current 0.1.0 prerelease line land on `main`.
-- Require exact-candidate success from the hosted [Leptos fixture](../integration/leptos/README.md).
-  It runs on pull requests to `main` and pushes to `main` for changes to library source, the root
-  `Cargo.toml`, Cargo configuration, the Rust toolchain file, the fixture (except its Markdown) or
-  its workflow or gate scripts. The fixture uses its own lockfile.
-  Unprefixed version tags such as `0.1.0-rc.1` and `0.1.0` trigger a run regardless of path. Use
-  manual dispatch when candidate evidence is missing and record its tested commit or tree.
-- Every pull request reports the required `leptos-fixture` check, alongside the Windows/Linux
-  `ci` check. A short job compares the PR merge revision with its base and requires a fixture
-  pass for affected paths or a skip with an explicit unaffected result. Its regression test
-  runs the production detector on disposable Git history and checks the aggregate decisions.
-  Both fixture compilation modes run in the hosted job. Each non-PR trigger retains its own run.
-- Recommend continuing the personal-use git-source channel for the first RC. Pin a tested commit
-  with Cargo's `rev`. An unprefixed annotated tag can name the same commit when authorized.
-  The README covers onboarding and links to runnable examples and focused guides. Build rustdoc
-  locally from that revision for the corresponding API reference. This meets the source-only goal
-  in [#8](https://github.com/viell-dev/slop-warded-router/issues/8#rc-gate-reviewed-concrete-candidate-plus-owner-approval).
-  Keep `publish = false`. General distribution needs a separately authorized channel, with a
-  documentation site or a justified Rust alternative such as docs.rs. Starting a site or publishing
-  to crates.io, docs.rs or GitHub Releases requires explicit owner authorization.
-- Prepare the human-use package and assigned open request described below before handing off a
-  candidate. The report may arrive during beta or RC, and stable depends on it.
-- Prepare and independently review the exact RC proposal, explain evidence limits and remaining
-  findings, and link an assigned, self-contained owner approval issue. Do not promote while it waits.
+Every pull request needs `ci` and `leptos-fixture`. The latter runs the full fixture when library
+source, the root `Cargo.toml`, Cargo configuration, the Rust toolchain, non-Markdown fixture
+files, or fixture workflow and gate scripts change. A cheap production gate compares the PR merge
+revision with its base and checks the affected or unaffected result. The same paths trigger the
+main-push fixture, and every unprefixed version tag triggers a separate full fixture. Use manual
+dispatch on `main` if the release commit needs fixture evidence. The fixture uses its own lockfile
+and checks both compilation modes.
 
-## Git-source handoff
+## Verify the exact release commit
 
-Give consumers the version, full commit SHA and direct source link. Link the changelog, README
-and examples at the same commit. Generate rustdoc there with the README command. Verify the
-download and its Cargo manifests and lockfiles, retain the archive checksum and check results,
-and run the clean-consumer verification with the published `rev`. If an annotated tag is
-authorized, confirm it resolves to the verified commit before advertising it.
+1. Prepare a release PR with the version in Cargo.toml and both lockfiles, the README status,
+   install commands and versioned links, and the changelog. For `0.1.0-beta.3` the release notes
+   link the [hands-on request](https://github.com/viell-dev/slop-warded-router/issues/26). Review
+   the complete PR and pass required CI on its final head. After integration, verify the commit
+   and tree against the reviewed head and refresh any evidence invalidated by integration.
+2. Run [repository verification](./verification.md) on an archive of the release commit.
+   Check the package list and run `cargo publish --dry-run --locked` from a clean Git checkout
+   of the exact commit. Run the git-source clean-consumer check against that pushed commit.
+   Record commit, tree, toolchain, commands, checks, package files and artifacts with the release.
+3. Require both GitHub Actions checks on the exact release commit in `main`. The
+   [release gate](../.github/scripts/release-verify.sh) selects the highest run number per
+   workflow file among `main` pushes and manual `main` runs for that SHA. It requires the selected
+   run and its named gate job in the current attempt to have succeeded. Missing, pending, skipped
+   or failed evidence blocks release. PR merge refs, other commits and the separate tag-triggered
+   fixture run are excluded. A docs-only release commit may need a manual fixture run on `main`.
 
-For a failed candidate or interrupted handoff, keep the previous working `rev` available and
-record the failed check. Issue a fresh candidate for a material fix and give consumers its new
-SHA and update instructions. Preserve any tag or commit already given to consumers.
+Package on Linux with the version in `rust-toolchain.toml`. Use a clean Git checkout for the
+release artifact so Cargo records the source commit in `.cargo_vcs_info.json`. A package from a
+source archive omits that provenance and can have a different checksum. Keep Cargo's build
+verification enabled.
 
-## Before stable
+## First publish (0.1.0-beta.3)
 
-Stable separately requires the owner's **explicit approval after review**, plus actual human
-installation and use of a representative candidate for the main library tasks. Automated browser
-execution, agent reviews and CI cannot satisfy that human gate.
+The first version must use a crates.io API token authorized to create a crate. This is a one-time
+`cargo publish` from a Cargo session signed in to crates.io. Use a Linux checkout with the pinned
+toolchain and a working linker. The lead publishes after the release PR merges and the required
+checks pass on its exact `main` commit.
 
-Prepare a small test package with a direct accessible build/source link, installation instructions,
-synthetic requests, numbered tasks and expected results. Ask the tester to create/refine a route,
-observe fallthrough/captures and use the dispatch boundary, then report the exact build/environment,
-what was tried, confusing API/workflow points and untested areas. Do not delegate build engineering
-or exhaustive regression work to the person.
+Use Bash with GitHub CLI access and `jq`. Set `release_commit` to the verified full SHA on `main`.
+Fetch `main` and check out that commit in a clean Git checkout. Create the annotated
+tag locally and leave it unpushed until trusted publishing is configured:
 
-Open the human request before handing over the candidate, assign the tester (or owner to arrange
-one), use `Needs: Human` and link the stable release it blocks. Keep it open until the actual report
-and resulting work are handled. Prepare the separate owner stable-approval request when the
-reviewable candidate is complete. RC/stable approval does not silently authorize a new channel.
-Routine source work in beta can continue while later-stage requests are pending.
+```sh
+git fetch origin refs/heads/main:refs/remotes/origin/main
+git switch --detach "$release_commit"
+version=0.1.0-beta.3
+git tag -a "$version" -m "Warded $version" "$release_commit"
+
+gate_output="$(mktemp)"
+GITHUB_REF="refs/tags/$version" GITHUB_SHA="$release_commit" \
+  GITHUB_REPOSITORY=viell-dev/slop-warded-router GITHUB_SERVER_URL=https://github.com \
+  GITHUB_OUTPUT="$gate_output" bash .github/scripts/release-verify.sh
+rm -- "$gate_output"
+```
+
+Continue only after the gate succeeds. With GitHub CLI access and the release commit verified,
+package and compare the index before uploading:
+
+```sh
+export CARGO_HTTP_USER_AGENT=warded-release
+cargo package --locked --target-dir target
+checksum="$(sha256sum "target/package/warded-$version.crate" | cut -d ' ' -f 1)"
+printf 'Warded %s SHA-256 %s\n' "$version" "$checksum"
+index_output="$(mktemp)"
+GITHUB_OUTPUT="$index_output" bash .github/scripts/release-index.sh check "$version" "$checksum"
+cat "$index_output"
+rm -- "$index_output"
+```
+
+Only `published=false` permits the upload. A matching existing version means the upload already
+succeeded. Investigate any checksum mismatch before proceeding.
+
+```sh
+cargo publish --locked --registry crates-io --target-dir target
+bash .github/scripts/release-index.sh confirm "$version" "$checksum"
+```
+
+## Trusted publishing
+
+After the crate exists, create the GitHub environment `crates-io`. Under **Deployment branches and
+tags**, choose **Selected branches and tags**, add a **Tag** rule `[0-9]*.[0-9]*.[0-9]*`, and allow
+no branch deployments. Keep authority to create release tags with trusted maintainers. No registry
+token secret is needed.
+
+In the crate's [Trusted Publishing settings](https://crates.io/docs/trusted-publishing), add a
+GitHub Actions publisher with owner `viell-dev`, repository `slop-warded-router`, workflow filename
+`release.yml` and environment `crates-io`.
+
+Push the verified annotated tag with `git push origin "refs/tags/$version"`. On beta.3, the
+[workflow](../.github/workflows/release.yml) will compare the manually published bytes and exercise
+the token exchange. For later releases follow the exact-commit verification above, then create
+and push the annotated tag. The workflow checks that the tag equals the Cargo version and that its
+commit is reachable from `main`. Only the environment's publish job can request a registry token.
+It authenticates after a matching existing publication too, so a successful run also verifies the
+trusted-publisher configuration. An existing version only succeeds when its index checksum matches.
+The workflow uploads only when the version is missing, then confirms the checksum.
+
+## Verify the publication
+
+- Check the exact version page on crates.io, its README links and the sparse index checksum against
+  the recorded Linux package. Confirm the downloadable archive's checksum too. Use a generic
+  User-Agent for registry requests.
+- Check the same version on docs.rs, including a successful build and the Tower and negotiation
+  APIs. Check the source tag resolves to the recorded commit.
+- Run the registry consumer check from a fresh Cargo environment. For beta.3 use
+  `bash scripts/check-clean-consumer.sh --registry 0.1.0-beta.3`. It tests fresh installation,
+  an update from source beta.2, all four feature combinations, rustdoc, removal and recovery.
+  Pass the previous published version for later registry-to-registry updates.
+- Record evidence in the release tracker. Mark the beta.3 hands-on request ready with verified
+  download, documentation and tag links when these checks pass. Keep the request open until the
+  owner's report and resulting work are handled.
+
+## Recovery
+
+If an upload or workflow is interrupted, compare the index with the package and rerun the release
+workflow on the same tag after resolving the cause. A matching checksum confirms the original
+upload. A mismatch blocks the release. If a required check is pending, let it finish before
+rerunning; if a check failed, diagnose it and retest the release commit or prepare a corrected
+release with a new version.
+
+While trusted publishing is being established, an authorized maintainer can use a crates.io API
+token scoped to publishing Warded updates and the manual commands above for an absent version.
+Require the same exact-commit checks and post-publication verification. Keep tokens out of the
+repository and Actions secrets.
+
+If a published build must be withdrawn, use `cargo yank --version "$version" warded` with an
+authorized Cargo session. Yanking prevents new resolutions but existing lockfiles may continue to
+use it. Record the impact and ship a corrected version. Never reuse a published version, replace
+its bytes, or move a published tag. Documentation fixes use the same next-version procedure.

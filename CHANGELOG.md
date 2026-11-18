@@ -1,5 +1,19 @@
 # Changes
 
+## Unreleased
+
+Changes on `main` appear here before the next release.
+
+## 0.1.0-beta.3
+
+- Prepare the first [crates.io publication](https://crates.io/crates/warded/0.1.0-beta.3)
+  and [versioned API reference](https://docs.rs/warded/0.1.0-beta.3) for the
+  [hands-on test in #26](https://github.com/viell-dev/slop-warded-router/issues/26).
+- Limit the crate package to the library, runnable examples, tests, benchmark, README and licenses.
+  Add exact-commit release checks, checksum verification and trusted publishing for later versions.
+- Document registry installation, updates, removal and recovery, and add a clean registry-consumer
+  check. Library behavior is unchanged from source beta.2.
+
 ## 0.1.0-beta.2 source candidate
 
 The second source beta for the agreed router-only first release. Cargo publication remains disabled.

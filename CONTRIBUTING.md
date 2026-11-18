@@ -11,6 +11,10 @@ every pull request. The [release procedure](./docs/release.md#before-rc) lists a
 manual dispatch and tag triggers. After relevant tests and required checks pass, review the
 complete change and record the platforms, Rust version, commands and evidence limits.
 
+Releases are distributed through crates.io, with versioned API documentation on docs.rs. Record
+unreleased user-facing changes in the changelog. The [release procedure](./docs/release.md)
+covers registry verification and publishing.
+
 Report suspected vulnerabilities using the [private GitHub route](./SECURITY.md). Security fixes
 land on `main` in the current 0.1.0 prerelease line.
 

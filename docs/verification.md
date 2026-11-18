@@ -43,8 +43,8 @@ differences; it is not a benchmark or a required compatibility claim.
 
 The server example additionally checks a real localhost HTTP/1.1 listener, host error conversion,
 HEAD/405 behavior, known cleartext context, graceful shutdown, and Vary preservation. It does not
-establish TLS/proxy trust, browser workflows, HTTP/2, or HTTP/3. Human use of a representative
-candidate remains required before a stable release.
+establish TLS/proxy trust, browser workflows, HTTP/2, or HTTP/3. The owner's hands-on pass is
+required before the first RC. Independent agent usability reviews cover later candidates.
 
 The [upstream-test comparison](./upstream-tests.md) records recurring early-release research and
 the provenance and disposition of additional cases in `upstream_cases.rs`. These cover empty and
@@ -85,25 +85,26 @@ required Windows/Linux library CI or human release testing. On pull requests the
 The fixture builds Warded with only `tower`. Negotiation evidence comes from the library checks,
 benchmarks, clean-consumer rehearsal and the server example.
 
-## Clean git-source consumer
+## Clean consumer
 
-Use a Bash environment with Rust 1.99.1, Git and HTTPS access to GitHub and crates.io. Pass the
-full SHA of a pushed revision:
+Use Bash with Rust 1.99.1, Git and HTTPS access to GitHub and crates.io. For an installable registry
+version or an unreleased git revision, respectively:
 
 ```sh
+bash scripts/check-clean-consumer.sh --registry <published-version> [previous-commit-sha-or-version]
 bash scripts/check-clean-consumer.sh <pushed-commit-sha> [previous-release-sha]
 ```
 
 The [script](../scripts/check-clean-consumer.sh) creates a disposable Cargo package outside the
-source tree with its own target directory. It uses the README's Cargo dependency snippet and
-first runs against the update baseline, which defaults to source beta.1. Pass the optional second
-argument to exercise an update from another pushed revision. The script changes the `rev` and
-updates the existing lockfile. It checks the exact resolved commit, runs matching and
-example-equivalent feature checks with defaults, without defaults and with each optional feature
-alone, then builds Warded's dependency rustdoc with warnings denied. Finally it removes Warded,
-checks that its package and source are gone from the lockfile, and restores and runs the pinned
-candidate. Both revisions are resolved through Git. Use `scripts/check.sh` separately for
-reconstructed Cargo package verification.
+source tree with its own target directory and uses the README's dependency snippets. Registry
+mode first runs a fresh install of the exact version, checking its crates.io lockfile source and
+checksum. It then tests an update from source beta.2 by default. Pass a previous published version
+to exercise a registry-to-registry update. Git mode defaults to source beta.1 as its baseline.
+
+Both modes update the baseline's existing lockfile, verify the candidate's exact version or
+commit, run with defaults, without defaults and with each optional feature alone, then build
+Warded's dependency rustdoc with warnings denied. They remove Warded, check the lockfile, and
+restore and run the pinned candidate. Use `scripts/check.sh` for reconstructed package verification.
 
 ## Alpha.2 regression and cost probes
 

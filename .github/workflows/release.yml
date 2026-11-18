@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify tag, main ancestry and required checks
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/release-verify.sh
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CARGO_HTTP_USER_AGENT: warded-release
+      RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify.outputs.commit }}
+          persist-credentials: false
+      - name: Build and hash the Cargo package
+        id: package
+        run: |
+          cargo --version
+          cargo package --locked --target-dir target
+          checksum="$(sha256sum "target/package/warded-$RELEASE_VERSION.crate" | cut -d ' ' -f 1)"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+          printf 'Warded %s package SHA-256: %s\n' "$RELEASE_VERSION" "$checksum" |
+            tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Check the crates.io index before authenticating
+        id: index
+        env:
+          PACKAGE_SHA256: ${{ steps.package.outputs.checksum }}
+        run: bash .github/scripts/release-index.sh check "$RELEASE_VERSION" "$PACKAGE_SHA256"
+      # Also authenticate after a matching manual publication to exercise the OIDC setup.
+      - name: Authenticate to crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+      - name: Publish the verified version
+        if: steps.index.outputs.published == 'false'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked --registry crates-io --target-dir target
+      - name: Confirm the published checksum
+        env:
+          PACKAGE_SHA256: ${{ steps.package.outputs.checksum }}
+        run: bash .github/scripts/release-index.sh confirm "$RELEASE_VERSION" "$PACKAGE_SHA256"
