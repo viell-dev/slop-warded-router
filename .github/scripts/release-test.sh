@@ -82,6 +82,7 @@ read -ra statuses <<< "$TEST_STATUS"
 calls=0
 [[ ! -f "$TEST_CALLS" ]] || calls="$(< "$TEST_CALLS")"
 echo $((calls + 1)) > "$TEST_CALLS"
+printf '%s\n' "$*" > "$TEST_CALLS.args"
 status="${statuses[calls]:-${statuses[-1]}}"
 [[ "${!#}" == https://index.crates.io/wa/rd/warded ]]
 [[ "$status" != fail ]] || exit 28
@@ -155,7 +156,9 @@ index() {
 published "$TEST_VERSION" "$TEST_CHECKSUM" > "$TEST_INDEX"
 index check "$TEST_VERSION" "$TEST_CHECKSUM"
 grep -Fx 'published=true' "$GITHUB_OUTPUT"
+grep -F -- '--retry 2 ' "$TEST_CALLS.args"
 index confirm "$TEST_VERSION" "$TEST_CHECKSUM"
+grep -F -- '--retry 0 ' "$TEST_CALLS.args"
 expect_failure 'already has a different checksum' index check "$TEST_VERSION" "$(printf '%064d' 2)"
 expect_failure 'Invalid package checksum' index check "$TEST_VERSION" not-a-checksum
 
@@ -176,6 +179,9 @@ TEST_STATUS=404 expect_failure 'did not appear in a readable index' \
 [[ "$(< "$TEST_CALLS")" == 18 ]]
 TEST_STATUS='503 200' expect_failure 'already has a different checksum' \
     index confirm "$TEST_VERSION" "$(printf '%064d' 2)"
+[[ "$(< "$TEST_CALLS")" == 2 ]]
+expect_failure 'already has a different checksum' index confirm "$TEST_VERSION" "$(printf '%064d' 2)"
+[[ "$(< "$TEST_CALLS")" == 1 ]]
 
 cp "$TEST_INDEX" duplicate
 cat duplicate >> "$TEST_INDEX"
@@ -183,5 +189,9 @@ expect_failure 'duplicate Warded version' index check "$TEST_VERSION" "$TEST_CHE
 printf '[]\n' > "$TEST_INDEX"
 expect_failure 'invalid Warded index response' index check "$TEST_VERSION" "$TEST_CHECKSUM"
 : > "$TEST_INDEX"
+expect_failure 'invalid Warded index response' index check "$TEST_VERSION" "$TEST_CHECKSUM"
+published "$TEST_VERSION" "$TEST_CHECKSUM" | jq -c '.name = "other"' > "$TEST_INDEX"
+expect_failure 'invalid Warded index response' index check "$TEST_VERSION" "$TEST_CHECKSUM"
+published "$TEST_VERSION" "$(printf '%064d' 1 | tr 0 A)" > "$TEST_INDEX"
 expect_failure 'invalid Warded index response' index check "$TEST_VERSION" "$TEST_CHECKSUM"
 echo "Release verification and index tests passed"

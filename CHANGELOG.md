@@ -4,6 +4,11 @@
 
 Changes on `main` appear here before the next release.
 
+- Release tooling only; library behavior is unchanged. The repository check also rejects a
+  missing README version pin, a stale table-form pin and relative README links. The release
+  workflow installs the toolchain `rust-toolchain.toml` names, and its publication confirmation
+  stays within the job timeout. The release tests cover index name and checksum validation.
+
 ## 0.1.0-beta.3
 
 - Prepare the first [crates.io publication](https://crates.io/crates/warded/0.1.0-beta.3)

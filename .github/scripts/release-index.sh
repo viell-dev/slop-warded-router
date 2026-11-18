@@ -11,7 +11,7 @@ trap 'rm -f -- "$index_body"' EXIT
 
 index_checksum() {
     local status
-    status="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --retry 2 \
+    status="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --retry "$curl_retries" \
         --user-agent warded-release --header 'Cache-Control: no-cache' \
         --output "$index_body" --write-out '%{http_code}' https://index.crates.io/wa/rd/warded)" ||
         return 1
@@ -39,9 +39,11 @@ index_checksum() {
     esac
 }
 
+# Confirm mode retries in its own loop, so curl does not retry there: 18 attempts of at most 30 s
+# plus the waits between them stay within the publish job's timeout.
 case "$mode" in
-    check) attempts=1 ;;
-    confirm) attempts=18 ;;
+    check) attempts=1 curl_retries=2 ;;
+    confirm) attempts=18 curl_retries=0 ;;
     *) echo "Expected check or confirm" >&2; exit 2 ;;
 esac
 

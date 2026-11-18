@@ -33,8 +33,9 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      # Without arguments, rustup installs the toolchain and components rust-toolchain.toml names.
       - name: Install pinned Rust
-        run: rustup toolchain install 1.99.1 --profile minimal
+        run: rustup toolchain install
       - name: Verify tag, main ancestry and required checks
         id: release
         env:
@@ -57,7 +58,7 @@ jobs:
           ref: ${{ needs.verify.outputs.commit }}
           persist-credentials: false
       - name: Install pinned Rust
-        run: rustup toolchain install 1.99.1 --profile minimal
+        run: rustup toolchain install
       - name: Build and hash the Cargo package
         id: package
         run: |
