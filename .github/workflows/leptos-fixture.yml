@@ -20,7 +20,7 @@ on:
       - 'integration/leptos/**'
       - '!integration/leptos/**/*.md'
       - '.github/workflows/leptos-fixture.yml'
-      - '.github/scripts/fixture-affected.sh'
+      - '.github/scripts/fixture-*.sh'
   workflow_dispatch:
 
 permissions:
@@ -46,26 +46,8 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 2
-      - name: Self-test the fixture path gate
-        run: |
-          expect() {
-            local expected="$1" label="$2" path actual
-            shift 2
-            actual="$(for path in "$@"; do printf '%s\0' "$path"; done |
-              bash .github/scripts/fixture-affected.sh)"
-            if [[ "$actual" != "affected=$expected" ]]; then
-              printf '%s: expected affected=%s, got %s\n' "$label" "$expected" "$actual" >&2
-              exit 1
-            fi
-            printf '%s: %s\n' "$label" "$actual"
-          }
-          expect true 'asset moved out of fixture' integration/leptos/public/favicon.ico docs/favicon.ico
-          expect true 'non-ASCII source path' src/café.rs
-          expect false 'fixture Markdown only' integration/leptos/docs/notes.md
-          expect false 'library lockfile only' Cargo.lock
-          expect true 'workflow only' .github/workflows/leptos-fixture.yml
-          expect true 'path gate only' .github/scripts/fixture-affected.sh
-          expect false 'empty list'
+      - name: Test the fixture gate
+        run: bash .github/scripts/fixture-gate-test.sh
       - name: Detect fixture-affecting changes
         id: paths
         env:
@@ -75,12 +57,8 @@ jobs:
             echo "affected=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # The first parent of the PR merge commit is the base. List both sides
-          # of renames as a deletion and addition, and preserve path bytes.
-          set -o pipefail
-          decision="$(git -c core.quotePath=false diff --no-renames -z --name-only HEAD^1 HEAD |
-            bash .github/scripts/fixture-affected.sh)"
-          printf '%s\n' "$decision" | tee -a "$GITHUB_OUTPUT"
+          # The first parent of the PR merge commit is the base.
+          bash .github/scripts/fixture-affected.sh HEAD^1 HEAD | tee -a "$GITHUB_OUTPUT"
 
   fixture:
     name: Linux HTTP and browser fixture
@@ -160,18 +138,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Require the fixture when affected
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           AFFECTED: ${{ needs.changes.outputs.affected }}
           FIXTURE_RESULT: ${{ needs.fixture.result }}
-        run: |
-          test "$CHANGES_RESULT" = success
-          case "$AFFECTED:$FIXTURE_RESULT" in
-            true:success|false:skipped) ;;
-            *)
-              printf 'Unexpected fixture gate state: affected=%q, fixture=%q\n' \
-                "$AFFECTED" "$FIXTURE_RESULT" >&2
-              exit 1
-              ;;
-          esac
+        run: bash .github/scripts/fixture-required.sh "$CHANGES_RESULT" "$AFFECTED" "$FIXTURE_RESULT"

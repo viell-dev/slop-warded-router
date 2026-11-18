@@ -74,8 +74,9 @@ cache. Three warmups precede 1000 path selections or 20 negotiation selections. 
   early/late/miss, four unsupported members or 1023, with a matching member appended for hits.
 - Small fields of 239–257 bytes and near-bound fields of 61,379–61,397 bytes, within the default
   64 KiB and 1024-member limits.
-- Near-64-KiB language lookup with three offers, zero-quality exclusions and an asserted fallback.
-  This row uses the same warmups, fresh head and 20 timed selections as the media cases.
+- Near-64-KiB language lookup with three offers, repeated comparisons against a zero-quality
+  exclusion and an asserted fallback. This row uses the same warmups, fresh head and 20 timed
+  selections as the media cases.
 
 The exact CSV records diagnostic means from Cargo's optimized benchmark profile. The beta.2
 promotion PR records the refreshed CSV from the final candidate archive, including the source and

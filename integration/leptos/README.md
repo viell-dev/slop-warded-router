@@ -95,7 +95,7 @@ is not a replacement for either.
 [Leptos fixture](../../.github/workflows/leptos-fixture.yml) runs on Ubuntu 24.04 for affected
 pull requests and pushes to `main`, for unprefixed version tags, and via manual dispatch. On every
 pull request a short job decides whether library source, the root manifest, Cargo configuration,
-the toolchain file, the fixture (except its Markdown), the workflow or its path script changed.
+the toolchain file, the fixture (except its Markdown), the workflow or its gate scripts changed.
 The required `leptos-fixture` check needs a passing fixture run for an affected revision or a
 skip with an explicit unaffected result. See the
 [release procedure](../../docs/release.md#before-rc) for the candidate gates.
