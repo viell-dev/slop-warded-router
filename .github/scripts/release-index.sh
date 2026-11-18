@@ -39,8 +39,9 @@ index_checksum() {
     esac
 }
 
-# Confirm mode retries in its own loop, so curl does not retry there: 18 attempts of at most 30 s
-# plus the waits between them stay within the publish job's timeout.
+# Confirm mode retries in its own loop, so curl does not retry there. Its 18 reads of at most 30 s
+# and the waits between them take at most about 10.5 minutes. That leaves the rest of the publish
+# job's 20-minute limit for checkout, toolchain, packaging and upload, which normally take a few.
 case "$mode" in
     check) attempts=1 curl_retries=2 ;;
     confirm) attempts=18 curl_retries=0 ;;
