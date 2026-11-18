@@ -259,4 +259,24 @@ expect_failure 'README.md' text_check
 text_case
 rm "$scratch/text/CHANGELOG.md"
 expect_failure 'CHANGELOG.md' text_check
+
+# A grep failure on a readable file, such as a read error, must stop the check rather than read
+# as "no match". The wrapper fails the calls whose arguments include FAIL_GREP_ON.
+mkdir "$scratch/failing-grep"
+REAL_GREP="$(command -v grep)"
+export REAL_GREP
+cat > "$scratch/failing-grep/grep" <<'BASH'
+#!/usr/bin/env bash
+if [[ " $* " == *" $FAIL_GREP_ON "* ]]; then
+    echo "grep: simulated read error" >&2
+    exit 2
+fi
+exec "$REAL_GREP" "$@"
+BASH
+chmod +x "$scratch/failing-grep/grep"
+for option in -oE -vE; do
+    text_case
+    FAIL_GREP_ON="$option" PATH="$scratch/failing-grep:$PATH" \
+        expect_failure 'simulated read error' text_check
+done
 echo "Release verification, index and release text tests passed"
