@@ -92,8 +92,8 @@ fn set_transport_security(mut request: Request<Body>) -> Request<Body> {
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
         .map(|info| info.0.ip());
-    let security = if peer == Some(PROXY) {
-        match request
+    let security = match peer {
+        Some(PROXY) => match request
             .headers()
             .get("x-forwarded-proto")
             .map(|value| value.as_bytes())
@@ -101,9 +101,11 @@ fn set_transport_security(mut request: Request<Body>) -> Request<Body> {
             Some(b"https") => TransportSecurity::Https,
             Some(b"http") => TransportSecurity::Unsecure,
             _ => TransportSecurity::Unknown,
-        }
-    } else {
-        TransportSecurity::Unsecure
+        },
+        // A direct connection from anywhere else is plain HTTP to this application.
+        Some(_) => TransportSecurity::Unsecure,
+        // Without the peer address nothing is known, so security conditions report an error.
+        None => TransportSecurity::Unknown,
     };
     request.extensions_mut().insert(security);
     request
@@ -130,15 +132,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         security(from([203, 0, 113, 9], "https")?),
         Some(TransportSecurity::Unsecure)
     );
+    // A server set up without connection information leaves the context unknown.
+    let request = Request::builder()
+        .header("x-forwarded-proto", "https")
+        .body(Body::empty())?;
+    assert_eq!(
+        security(set_transport_security(request)),
+        Some(TransportSecurity::Unknown)
+    );
     Ok(())
 }
 ```
 
 Apply the function as a layer, `.layer(tower::util::MapRequestLayer::new(set_transport_security))`,
 and serve the application with `into_make_service_with_connect_info::<SocketAddr>()` so the peer
-address is available. Adapt the
-header and the trust rule to what your proxy guarantees; the important property is that a value a
-client can forge never becomes `Https`.
+address is available. Adapt the header and the trust rule to what your proxy guarantees; the
+important property is that a value a client can forge never becomes `Https`.
 
 ## Unknown context
 
