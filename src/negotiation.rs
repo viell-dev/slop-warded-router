@@ -1,8 +1,90 @@
-//! Accept-family predicates using existing grammar parsers and explicit selection rules.
+//! Route conditions on `Accept`, `Accept-Language` and `Accept-Encoding`.
 //!
-//! Shared offer sets compute their choice once per immutable [`Head`] and limits.
+//! Clients list the representations they accept, with weights from `q=0` (not acceptable)
+//! to `q=1` (the default). Negotiation compares that list with your offers. There are two
+//! kinds of conditions:
+//!
+//! - **Preference within a set.** [`Offers`] holds every alternative you offer, and
+//!   [`Offers::selected`] matches only when its offer is the client's preferred one. Give
+//!   each alternative route one of these; at most one of them matches a request.
+//! - **Acceptability of one offer.** [`accepts_language`], [`accepts_media_type`] and
+//!   [`accepts_encoding`] match whenever the client would accept that offer, whatever else
+//!   exists. Several such routes can match one request, and declaration order then decides.
+//!
+//! # Serve a page in several languages
+//!
+//! Every language route shares one offer set, and a final route without a language
+//! condition serves the default when no offer is acceptable or the field is malformed:
+//!
+//! ```
+//! use http::Request;
+//! use warded::{
+//!     Head, Matcher, Selector,
+//!     matchers::{exact_path, get},
+//!     negotiation::{LanguageMatching, Offers},
+//! };
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let languages = Offers::languages(["en", "fr", "de"], LanguageMatching::Lookup)?;
+//! let page = || get().and(exact_path("/welcome"));
+//! let routes = Selector::new()
+//!     .route(page().and(languages.selected("en")?), "English")
+//!     .route(page().and(languages.selected("fr")?), "French")
+//!     .route(page().and(languages.selected("de")?), "German")
+//!     .route(page(), "English, as the default");
+//!
+//! let select = |accept_language: &str| -> Result<_, Box<dyn std::error::Error>> {
+//!     let request = Request::builder()
+//!         .uri("/welcome")
+//!         .header("accept-language", accept_language)
+//!         .body(())?;
+//!     Ok(routes.select(&Head::from_request(&request))?.map(|selected| *selected.target))
+//! };
+//! // Lookup shortens fr-CA to reach the offer fr.
+//! assert_eq!(select("fr-CA, fr;q=0.9, en;q=0.5")?, Some("French"));
+//! // The highest weight wins.
+//! assert_eq!(select("en;q=0.2, de;q=0.8")?, Some("German"));
+//! // Nothing offered is acceptable, so every language route misses.
+//! assert_eq!(select("es")?, Some("English, as the default"));
+//! // A malformed field misses too, unless the condition uses `invalid_is_error`.
+//! assert_eq!(select("fr;q=2")?, Some("English, as the default"));
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! Add `Vary: Accept-Language` to the responses of these routes, including the default,
+//! so shared caches keep the variants apart. Warded does not change responses.
+//!
+//! # Language matching
+//!
+//! [`LanguageMatching::Lookup`] shortens the client's range until it reaches an offer, so
+//! a request for `fr-CA` can select the offer `fr`; it suits a set of general languages
+//! with a default. [`LanguageMatching::BasicFilter`] lets a range cover longer tags, so a
+//! request for `fr` can select the offer `fr-CA`; it suits regional offers. Neither mode
+//! goes the other way, which is why the mode is a required argument.
+//!
+//! # Absent, empty and malformed fields
+//!
+//! | Field                     | [`Offers::selected`]            | `accepts_*`  |
+//! | ------------------------- | ------------------------------- | ------------ |
+//! | Absent                    | The first offer in the set      | Matches      |
+//! | Present but empty         | Misses                          | Misses       |
+//! | Malformed or over [`Limits`] | Misses, or [`MatchError::InvalidHeader`] with [`Negotiated::invalid_is_error`] | The same |
+//!
+//! An empty `Accept-Encoding` is the exception: it accepts only `identity`. An empty field
+//! is valid, so it misses even with `invalid_is_error`. Repeated fields are combined into
+//! one list in order.
+//!
+//! # Rules and dependencies
+//!
+//! Ties between equal weights go to the earlier offer in the set, except that lookup keeps
+//! the client's order of equal-weight ranges. Shared offer sets compute their choice once
+//! per immutable [`Head`] and limits; independent conditions parse the field each time.
+//!
 //! Parsing, quality syntax, quoting, media-range matching, and encoding negotiation come
 //! from `parse-net`; media precedence and language selection follow Warded's own rules.
+//! The [content negotiation guide](https://viell-dev.github.io/slop-warded-router/negotiation.html)
+//! works through wildcards, exclusions, media types, encodings and limits.
 
 use crate::{Captures, DefinitionError, Head, MatchError, MatchResult, Matcher};
 use http::header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, HeaderName};
@@ -15,12 +97,35 @@ use std::{
 
 mod scoring;
 
-/// The language matching operation, distinct from request quality parsing.
+/// How a client's language range reaches a server's language offer (RFC 4647).
+///
+/// ```
+/// use http::Request;
+/// use warded::{Head, Matcher, negotiation::{LanguageMatching, accepts_language}};
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let request = Request::builder().header("accept-language", "fr-CA").body(())?;
+/// let head = Head::from_request(&request);
+/// // Lookup shortens the requested fr-CA to the offered fr.
+/// let lookup = accepts_language("fr", LanguageMatching::Lookup)?;
+/// assert!(lookup.evaluate(&head)?.is_some());
+/// // Basic filtering only lets a range cover longer tags, so fr-CA does not cover fr.
+/// let filter = accepts_language("fr", LanguageMatching::BasicFilter)?;
+/// assert!(filter.evaluate(&head)?.is_none());
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum LanguageMatching {
     /// Try ranges in quality/client order, truncating each before the next range.
+    ///
+    /// A request for `fr-CA` tries the offer `fr-CA`, then `fr`, before the next range.
+    /// A positive `*` selects the first offer that is not excluded, after every named range.
     Lookup,
     /// A range accepts itself and tags beginning with that range plus a hyphen.
+    ///
+    /// A request for `fr` accepts the offers `fr`, `fr-CA` and `fr-FR`. Each offer takes
+    /// the weight of its longest covering range, and equal weights keep offer order.
     BasicFilter,
 }
 
@@ -91,6 +196,30 @@ struct OfferSet {
 ///
 /// Media, encoding, and basic filtering ties use server offer order. Lookup
 /// uses client range order among equal weights and offer order for a default.
+///
+/// Share one set among routes that are alternatives with otherwise identical conditions.
+/// If a route's other conditions can fail while the set still prefers its offer, no
+/// alternative matches; give routes with different availability their own sets.
+///
+/// ```
+/// use http::Request;
+/// use warded::{Head, Selector, negotiation::Offers};
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // With equal weights, or with `*/*`, the first offer wins.
+/// let formats = Offers::media_types(["text/html", "application/json"])?;
+/// let routes = Selector::new()
+///     .route(formats.selected("text/html")?, "html")
+///     .route(formats.selected("application/json")?, "json");
+///
+/// let request = Request::builder()
+///     .header("accept", "application/json, text/html;q=0.5")
+///     .body(())?;
+/// let selected = routes.select(&Head::from_request(&request))?.expect("json is preferred");
+/// assert_eq!(*selected.target, "json");
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct Offers {
     shared: Arc<OfferSet>,
