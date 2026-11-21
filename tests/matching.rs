@@ -1,6 +1,6 @@
 //! Request-head selection and primitive matcher regression checks.
 
-use http::{Request, Version, header::HeaderValue};
+use http::{Method, Request, Version, header::HeaderValue};
 use std::{cell::Cell, rc::Rc};
 use warded::{
     Captures, Head, MatchError, Matcher, Selector, TransportSecurity, match_fn, matchers::*,
@@ -71,7 +71,7 @@ fn every_required_dimension_can_participate_without_a_path() {
         .and(version(Version::HTTP_2))
         .and(secured())
         .and(header_eq("x-mode", "preview").unwrap())
-        .and(query_pair("revision", "2"));
+        .and(param_pair("revision", "2"));
     for missing in 0..6 {
         let mut request = Request::builder()
             .method(if missing == 1 { "POST" } else { "GET" })
@@ -175,16 +175,16 @@ fn raw_path_and_query_rules_do_not_normalize_or_lose_repetitions() {
         .unwrap();
     assert_eq!(captures.get("value"), Some("a%2Fb"));
     for matcher in [
-        query_pair("x", "2"),
-        query_pair("space", "a+b"),
-        query_pair("encoded", "%31"),
-        query_pair("empty", ""),
+        param_pair("x", "2"),
+        param_pair("space", "a+b"),
+        param_pair("encoded", "%31"),
+        param_pair("empty", ""),
     ] {
         assert!(matches(&matcher, &request));
     }
-    assert!(!matches(&query_pair("encoded", "1"), &request));
-    assert!(!matches(&query_pair("flag", ""), &request));
-    assert!(matches(&query_present("flag"), &request));
+    assert!(!matches(&param_pair("encoded", "1"), &request));
+    assert!(!matches(&param_pair("flag", ""), &request));
+    assert!(matches(&param_present("flag"), &request));
     assert!(
         path("/{*rest}")
             .unwrap()
@@ -267,6 +267,65 @@ fn shortcuts_are_equivalent_and_unknown_security_is_explicit() {
 }
 
 #[test]
+fn query_method_helper_matches_only_the_exact_query_method() {
+    let lower_case = Method::from_bytes(b"query").unwrap();
+    assert_ne!(lower_case, Method::QUERY);
+    for (verb, expected) in [
+        (Method::QUERY, true),
+        (Method::GET, false),
+        (Method::POST, false),
+        (lower_case, false),
+    ] {
+        let request = Request::builder()
+            .method(verb.clone())
+            .uri("/reports?q=1")
+            .body(())
+            .unwrap();
+        let view = Head::from_request(&request);
+        assert_eq!(
+            query().evaluate(&view).unwrap().is_some(),
+            expected,
+            "{verb}"
+        );
+        assert_eq!(
+            query().evaluate(&view),
+            method(Method::QUERY).evaluate(&view),
+            "{verb}"
+        );
+    }
+
+    let routes = Selector::new()
+        .route(
+            query()
+                .and(path("/reports/{id}").unwrap())
+                .and(param_pair("q", "1")),
+            "query report",
+        )
+        .route(path("/reports/{id}").unwrap(), "other report");
+    for (verb, uri, expected) in [
+        ("QUERY", "/reports/7?q=1", Some(("query report", 0))),
+        ("QUERY", "/reports/7?q=2", Some(("other report", 1))),
+        ("GET", "/reports/7?q=1", Some(("other report", 1))),
+        ("query", "/reports/7?q=1", Some(("other report", 1))),
+        ("QUERY", "/reports?q=1", None),
+        ("QUERY", "/other/7?q=1", None),
+    ] {
+        let request = Request::builder().method(verb).uri(uri).body(()).unwrap();
+        let selected = routes.select(&Head::from_request(&request)).unwrap();
+        assert_eq!(
+            selected
+                .as_ref()
+                .map(|selected| (*selected.target, selected.selection.index)),
+            expected,
+            "{verb} {uri}"
+        );
+        if let Some(selected) = selected {
+            assert_eq!(selected.selection.captures.get("id"), Some("7"));
+        }
+    }
+}
+
+#[test]
 fn local_matchers_need_no_send_or_sync_and_short_circuit() {
     let count = Rc::new(Cell::new(0));
     let observed = count.clone();
@@ -310,8 +369,8 @@ fn borrowed_configuration_is_owned_by_registered_matchers() {
                 .and(header_eq(name, value).unwrap())
                 .and(header_any_eq(name, value).unwrap())
                 .and(header_present(name).unwrap())
-                .and(query_pair(key, value))
-                .and(query_present(key)),
+                .and(param_pair(key, value))
+                .and(param_present(key)),
             "configured",
         )
     }
@@ -371,7 +430,7 @@ fn raw_presence_and_any_value_helpers_have_negative_cases() {
         &header_any_eq("x-language", "fr").unwrap(),
         &request
     ));
-    assert!(!matches(&query_present("language"), &request));
+    assert!(!matches(&param_present("language"), &request));
     let (parts, _) = request.into_parts();
     let head = Head::from_parts(&parts);
     assert!(
@@ -381,7 +440,7 @@ fn raw_presence_and_any_value_helpers_have_negative_cases() {
             .unwrap()
             .is_some()
     );
-    assert!(query_pair("other", "fr").evaluate(&head).unwrap().is_some());
+    assert!(param_pair("other", "fr").evaluate(&head).unwrap().is_some());
 }
 
 #[test]

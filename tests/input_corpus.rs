@@ -95,11 +95,11 @@ fn seeded_raw_headers_queries_and_compiled_paths_preserve_their_contracts() {
                 matches!(case % 4, 1 | 3)
             );
             assert_eq!(
-                query_present("target").evaluate(&head).unwrap().is_some(),
+                param_present("target").evaluate(&head).unwrap().is_some(),
                 present != 0
             );
             assert_eq!(
-                query_pair("target", &query_value)
+                param_pair("target", &query_value)
                     .evaluate(&head)
                     .unwrap()
                     .is_some(),

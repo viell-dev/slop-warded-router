@@ -4,11 +4,20 @@
 
 Changes on `main` appear here before the next release.
 
-- Release tooling only; library behavior is unchanged. The repository check also rejects a
-  missing README version pin, stale pins in any form, a missing changelog release heading and
-  relative README links outside code blocks. The release workflow installs the toolchain
-  `rust-toolchain.toml` names, and its publication confirmation stays within the job timeout. The
-  release tests cover index name and checksum validation and the README rules.
+- **Breaking:** rename the raw URI query-string helpers so a composition cannot mix them up with
+  the QUERY method. Matching is unchanged: split on `&` and the first `=`, with no decoding. No
+  deprecated aliases remain. [#30](https://github.com/viell-dev/slop-warded-router/issues/30)
+  - `matchers::query_pair` → `matchers::param_pair`
+  - `matchers::query_present` → `matchers::param_present`
+  - `matchers::QueryMatcher` → `matchers::ParamMatcher`
+- Add `matchers::query()`, which matches only the QUERY method
+  ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008)), like `get()` and `post()`. Matchers still
+  never read the request content. [#30](https://github.com/viell-dev/slop-warded-router/issues/30)
+- Release tooling: the repository check also rejects a missing README version pin, stale pins in
+  any form, a missing changelog release heading and relative README links outside code blocks.
+  The release workflow installs the toolchain `rust-toolchain.toml` names, and its publication
+  confirmation stays within the job timeout. The release tests cover index name and checksum
+  validation and the README rules.
 
 ## 0.1.0-beta.3
 

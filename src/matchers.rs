@@ -32,7 +32,7 @@ macro_rules! method_helpers {
         pub fn $name()->impl Matcher + Clone { method(Method::$method) }
     )+};
 }
-method_helpers!(get=>GET,head=>HEAD,post=>POST,put=>PUT,patch=>PATCH,delete=>DELETE,options=>OPTIONS,connect=>CONNECT,trace=>TRACE);
+method_helpers!(get=>GET,head=>HEAD,post=>POST,put=>PUT,patch=>PATCH,delete=>DELETE,options=>OPTIONS,connect=>CONNECT,trace=>TRACE,query=>QUERY);
 
 /// A condition on explicitly supplied transport security.
 #[derive(Clone, Copy, Debug)]
@@ -294,32 +294,34 @@ impl Matcher for HeaderMatcher {
     }
 }
 
-/// Match any exact raw `key=value` query pair, preserving repetitions and encoding.
+/// Match any exact raw `key=value` pair in the URI query string, preserving
+/// repetitions and encoding.
 ///
 /// Split only on `&` and the first `=`. `+` stays a plus and `%31` stays encoded.
-/// A bare flag does not equal a pair with an empty value.
-pub fn query_pair(key: impl Into<String>, value: impl Into<String>) -> QueryMatcher {
-    QueryMatcher {
+/// A bare flag does not equal a pair with an empty value. This reads the URI,
+/// not the request method: [`query()`] matches the QUERY method.
+pub fn param_pair(key: impl Into<String>, value: impl Into<String>) -> ParamMatcher {
+    ParamMatcher {
         key: key.into(),
         value: Some(value.into()),
     }
 }
-/// Match a raw query key, whether a bare flag or a `key=value` pair.
-pub fn query_present(key: impl Into<String>) -> QueryMatcher {
-    QueryMatcher {
+/// Match a raw URI query-string key, whether a bare flag or a `key=value` pair.
+pub fn param_present(key: impl Into<String>) -> ParamMatcher {
+    ParamMatcher {
         key: key.into(),
         value: None,
     }
 }
 
-/// An owned raw query-key or key/value condition.
+/// An owned raw URI query-string key or key/value condition.
 #[derive(Clone, Debug)]
-pub struct QueryMatcher {
+pub struct ParamMatcher {
     key: String,
     value: Option<String>,
 }
 
-impl Matcher for QueryMatcher {
+impl Matcher for ParamMatcher {
     fn evaluate(&self, head: &Head<'_>) -> MatchResult {
         let matched = head.uri().query().is_some_and(|query| {
             query
