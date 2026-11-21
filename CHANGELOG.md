@@ -18,7 +18,8 @@ Changes on `main` appear here before the next release.
   conditions, transport security, content negotiation, Tower and Axum, custom matchers,
   troubleshooting, limits, versions and upgrading. The negotiation guide works through languages
   with a default, lookup against basic filtering, weights and exclusions, absent, empty and
-  malformed fields, `Vary`, media types, encodings and limits.
+  malformed fields, `Vary`, media types, encodings and limits; the Tower guide serves such a page
+  from an Axum application with `Content-Language` and `Vary` headers.
   [#29](https://github.com/viell-dev/slop-warded-router/issues/29)
 - Rewrite the README around a language negotiation example, replacing an exact `Accept-Language`
   comparison, and add worked examples to the crate and `negotiation` rustdoc. Document existing
