@@ -21,8 +21,8 @@ Warded has two kinds of negotiation conditions, for different questions:
 
 - **Which of my offers does the client prefer?** Build an offer set with `Offers::languages`,
   `Offers::media_types` or `Offers::encodings`, and give each alternative route
-  `offers.selected(offer)`. Exactly one offer in the set is preferred for a request, so at most one
-  of these routes matches.
+  `offers.selected(offer)`. At most one offer in the set is preferred for a request, so at most
+  one of these routes matches, and none does when no offer is acceptable.
 - **Is this one offer acceptable at all?** `accepts_language`, `accepts_media_type` and
   `accepts_encoding` match whenever the client would accept that single offer, ignoring any other
   representation you might have. Use them for an endpoint that only produces one representation.
