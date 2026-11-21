@@ -150,6 +150,121 @@ The pieces:
 - **`Extension<Captures>`** reads Warded's captures. Axum's `Path` extractor does not see them,
   because Warded does not fill Axum's private path state.
 
+## A page in several languages with Axum
+
+This application serves `/welcome` in English, French or German, following the route table in
+[serve a page in several languages](./negotiation.md#serve-a-page-in-several-languages). Each
+language gets a route that asks the shared offer set whether it is preferred, and a handler that
+labels its response with `Content-Language`. A final route serves the first language when no
+other route matches, and a layer adds `Vary: Accept-Language` to every response:
+
+```rust
+use axum::{
+    body::Body,
+    error_handling::HandleError,
+    http::{
+        HeaderValue, Request, StatusCode,
+        header::{CONTENT_LANGUAGE, VARY},
+    },
+    response::Response,
+    routing::{MethodRouter, get},
+};
+use http_body_util::BodyExt;
+use std::convert::Infallible;
+use tower::{ServiceExt, util::MapResponseLayer};
+use warded::{
+    DefinitionError, DispatchError, Matcher, Router,
+    matchers::exact_path,
+    negotiation::{LanguageMatching, Offers},
+};
+
+/// The languages the page exists in, with its text in each. Without a stated preference, the
+/// first is chosen.
+const WELCOME: [(&str, &str); 3] = [("en", "Welcome"), ("fr", "Bienvenue"), ("de", "Willkommen")];
+
+/// The welcome page in one language.
+fn welcome(language: &'static str, text: &'static str) -> MethodRouter {
+    get(move || async move { ([(CONTENT_LANGUAGE, language)], text) })
+}
+
+/// Tell caches that every response depends on the request's Accept-Language field.
+fn vary_on_language(mut response: Response) -> Response {
+    // Append, so a Vary set by a handler is kept.
+    let vary = HeaderValue::from_static("accept-language");
+    response.headers_mut().append(VARY, vary);
+    response
+}
+
+fn application() -> Result<axum::Router, DefinitionError> {
+    // One offer set for all of the page's routes.
+    let offered = WELCOME.map(|(language, _)| language);
+    let languages = Offers::languages(offered, LanguageMatching::Lookup)?;
+    let mut routes = Router::new();
+    for (language, text) in WELCOME {
+        let condition = exact_path("/welcome").and(languages.selected(language)?);
+        routes = routes.route(condition, welcome(language, text));
+    }
+    // Reached when no offered language is acceptable or the field is malformed.
+    let (language, text) = WELCOME[0];
+    let routes = routes.route(exact_path("/welcome"), welcome(language, text));
+    let routes = HandleError::new(routes, |_error: DispatchError<Infallible>| async {
+        StatusCode::INTERNAL_SERVER_ERROR
+    });
+    Ok(axum::Router::new()
+        .fallback_service(routes)
+        .layer(MapResponseLayer::new(vary_on_language)))
+}
+
+/// Serve the application; a real program calls this from `main`.
+async fn serve() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+    axum::serve(listener, application()?).await?;
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let app = application()?;
+    for (accept_language, language, text) in [
+        (Some("fr-CA, fr;q=0.9, en;q=0.5"), "fr", "Bienvenue"),
+        (Some("de-AT"), "de", "Willkommen"),
+        (None, "en", "Welcome"),
+        // The default route: Spanish is not offered, and a weight above 1 is malformed.
+        (Some("es"), "en", "Welcome"),
+        (Some("fr;q=2"), "en", "Welcome"),
+    ] {
+        let mut request = Request::builder().uri("/welcome");
+        if let Some(value) = accept_language {
+            request = request.header("accept-language", value);
+        }
+        let response = app.clone().oneshot(request.body(Body::empty())?).await?;
+        assert_eq!(response.status(), StatusCode::OK, "{accept_language:?}");
+        assert_eq!(response.headers()[CONTENT_LANGUAGE], language);
+        assert_eq!(response.headers()[VARY], "accept-language");
+        assert_eq!(response.into_body().collect().await?.to_bytes(), text);
+    }
+
+    // Responses that no handler produced carry Vary too: Axum's 405 and the router's 404.
+    let request = Request::builder()
+        .method("POST")
+        .uri("/welcome")
+        .body(Body::empty())?;
+    let response = app.clone().oneshot(request).await?;
+    assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+    assert_eq!(response.headers()[VARY], "accept-language");
+    let request = Request::builder().uri("/elsewhere").body(Body::empty())?;
+    let response = app.oneshot(request).await?;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.headers()[VARY], "accept-language");
+    Ok(())
+}
+```
+
+The layer is on the outer Axum router, so it also covers Axum's 405 responses and the responses
+`HandleError` makes from routing errors. To keep other paths cacheable without the header, wrap
+only the page's services instead, as [caching and Vary](./negotiation.md#caching-and-vary)
+describes.
+
 ## Mounting Axum routers
 
 A destination can also be a whole `axum::Router`, with its own routes, state and extractors.

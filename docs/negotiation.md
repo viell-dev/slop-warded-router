@@ -6,9 +6,11 @@ Clients say which representations they prefer in three request fields:
 - `Accept-Language` lists languages, such as `fr-CA` or `en`.
 - `Accept-Encoding` lists content codings, such as `br` or `gzip`.
 
-Each field is a list, and each member can carry a weight from `q=0` to `q=1`, where a higher
-weight is preferred, the default is 1 and `q=0` means "not acceptable". A browser might send
-`Accept-Language: fr-CA,fr;q=0.9,en;q=0.5`: Canadian French first, any French next, English last.
+Each field is a list, and each member of the list is a _range_: a value the client accepts, such
+as `fr-CA`, or a wildcard such as `text/*` or `*` that stands for many values. Each range can carry
+a weight from `q=0` to `q=1`, where a higher weight is preferred, the default is 1 and `q=0` means
+"not acceptable". A browser might send `Accept-Language: fr-CA,fr;q=0.9,en;q=0.5`: Canadian
+French first, any French next, English last.
 
 Negotiation compares that list with what your application offers and picks one offer. Warded turns
 the result into a route condition, so routes can serve the chosen representation. This needs the
@@ -117,8 +119,9 @@ Three parts of the table do the work:
    language route misses. Without the last route the request would get a 404. That route can
    serve the default language, as here, or a 406 Not Acceptable response.
 
-Serve these routes through a `Router` and add `Vary: Accept-Language` to their responses; see
-[caching and Vary](#caching-and-vary).
+[A page in several languages with Axum](./tower.md#a-page-in-several-languages-with-axum) serves
+this table from an Axum application, with a `Content-Language` header from each handler and a
+`Vary: Accept-Language` layer; [caching and Vary](#caching-and-vary) explains the layer.
 
 ## Lookup or basic filtering
 
@@ -177,9 +180,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mixed = ["en", "fr", "fr-CA"];
     assert_eq!(preferred(&mixed, Lookup, "fr-CA")?, Some("fr-CA"));
     assert_eq!(preferred(&mixed, Lookup, "fr-BE")?, Some("fr"));
+
+    // A one-character subtag goes together with the subtag after it.
+    let chinese = ["zh", "zh-Hant"];
+    assert_eq!(
+        preferred(&chinese, Lookup, "zh-Hant-x-priv")?,
+        Some("zh-Hant")
+    );
+    assert_eq!(preferred(&general, Lookup, "fr-x-foo-CA")?, Some("fr"));
     Ok(())
 }
 ```
+
+When lookup shortens a range, it follows RFC 4647: a one-character subtag, such as the `x` that
+starts a private-use part, is removed together with the subtag that follows it, so a range never
+shortens to a tag that ends in one character. `zh-Hant-x-priv` tries `zh-Hant-x-priv`, then
+`zh-Hant` and `zh`; `fr-x-foo-CA` tries `fr-x-foo-CA`, `fr-x-foo` and `fr`.
 
 Which to choose:
 
@@ -271,9 +287,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
-
-Lookup follows RFC 4647 when shortening: a single-character subtag is removed together with the
-subtag before it, so a range never shortens to a tag ending in one character.
 
 ## Absent, empty and malformed headers
 
@@ -443,6 +456,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         (None, "HTML page"),
         (Some("image/png"), "406 Not Acceptable"),
         (Some("text/*, text/html;q=0"), "406 Not Acceptable"),
+        // The offer has no charset parameter, so this range does not match it.
+        (Some("text/html; charset=utf-8"), "406 Not Acceptable"),
     ] {
         let mut request = Request::builder().uri("/orders");
         if let Some(value) = accept {
@@ -468,6 +483,11 @@ The rules for media types:
 - The offer with the highest weight wins. Equal weights go to the offer listed first in your set,
   so put the representation you prefer to serve first. With `*/*` or no `Accept` field, it is
   chosen.
+- A range with parameters matches only offers that carry each of those parameters with the same
+  value. Parameter names, and the values of `charset`, ignore ASCII case; other values are compared
+  exactly after removing quotes. So `Accept: text/html; charset=utf-8` does not match the offer
+  `text/html`, but matches `text/html;charset=UTF-8`. A range without parameters, such as
+  `text/html`, matches the offer with or without them.
 - Offers are concrete media types and may carry parameters, as in `text/html;level=1`, but not a
   wildcard or a `q` weight.
 
@@ -506,7 +526,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for (accept_encoding, expected) in [
         (Some("gzip, br"), "Brotli file"),
+        // br has no entry and there is no `*`, so it is not acceptable.
         (Some("gzip"), "gzip file"),
+        (Some("x-gzip"), "gzip file"),
         (Some("br;q=0.5, gzip;q=0.8, identity;q=0.1"), "gzip file"),
         // An unlisted identity counts as fully acceptable.
         (Some("br;q=0.5, gzip;q=0.8"), "plain file"),
@@ -539,8 +561,11 @@ Encodings follow the HTTP rules for `Accept-Encoding` in [RFC
   win ties with it.
 - An empty `Accept-Encoding` accepts only `identity`.
 - Without the field, any coding is acceptable, and the set chooses its first offer.
-- A coding takes the weight of its own entry, otherwise the weight of `*`. Equal weights go to the
-  offer listed first.
+- A coding takes the weight of its own entry, otherwise the weight of `*`. A coding other than
+  `identity` with neither is not acceptable, which is why `gzip` alone selects the gzip file
+  although `br` is listed first. Equal weights go to the offer listed first.
+- `x-gzip` and `x-compress` are the same codings as `gzip` and `compress`, in the field and in
+  your offers, ignoring ASCII case.
 
 ## Shared offers or independent conditions
 
