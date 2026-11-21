@@ -1,7 +1,8 @@
 # Verification
 
 Use Rust 1.99.1 from `rust-toolchain.toml`. Integration requires `ci` (Windows and Linux library
-checks and Linux dependency policy) and `leptos-fixture` (the fixture gate).
+checks, Linux dependency policy and the documentation site build) and `leptos-fixture` (the
+fixture gate).
 
 From the repository root, run the same entry point as both CI platforms:
 
@@ -11,12 +12,13 @@ bash scripts/check.sh
 
 The [script](../scripts/check.sh) anchors itself to the checkout root and derives the packaged
 manifest from Cargo's current package identity. It first runs the [release text
-check](../scripts/check-release-text.sh). That check requires the README to pin that version, its
-install pins, version-pinned links and the latest changelog release heading to name only that
-version, and every README link to be absolute or an in-page anchor. crates.io resolves relative
-README links against the default branch. The script then runs formatting, Clippy on all targets, the
-four feature configurations and doctests, documentation with warnings denied, both examples,
-package verification, and both packaged examples. Package output uses `CARGO_TARGET_DIR` when set,
+check](../scripts/check-release-text.sh). That check requires the README and a site page to pin
+that version, the install pins and version-pinned links of the README and every site page and the
+latest changelog release heading to name only that version, and every README link to be absolute
+or an in-page anchor. crates.io resolves relative README links against the default branch. The
+script then runs formatting, Clippy on all targets, the four feature configurations and doctests,
+the site's Rust examples, documentation with warnings denied, both examples, package
+verification, and both packaged examples. Package output uses `CARGO_TARGET_DIR` when set,
 otherwise `target`; the package step chooses that output explicitly to avoid stale-path fallback.
 
 A separate required Linux job runs `cargo deny --locked check` with cargo-deny 0.20.2, verified
@@ -88,6 +90,31 @@ required Windows/Linux library CI or human release testing. On pull requests the
 `leptos-fixture` check runs the suite when the [fixture's inputs change](./release.md#before-rc).
 The fixture builds Warded with only `tower`. Negotiation evidence comes from the library checks,
 benchmarks, clean-consumer rehearsal and the server example.
+
+## Documentation site
+
+`docs/` is both the VitePress site and the unpublished `warded-docs` workspace member. Its
+[`pages.rs`](../docs/pages.rs) includes each page as the documentation of an item that exists
+only under `cfg(doctest)`, so `cargo test --package warded-docs --locked` compiles and runs every
+`rust` code block on the site against the source in this checkout, on Windows and Linux. Blocks
+marked `rust no_run` compile only; VitePress shows them as Rust. The crate's unit tests fail when
+a page is missing from `pages.rs`, when a code block names a language outside a short allowed
+list (rustdoc would silently skip a block marked `rs`), or when a fence is indented or unclosed.
+The crate package excludes `docs/`, so these checks never run from the package; the README's
+examples run from the package's own doctests.
+
+The required `ci` workflow's `site` job installs the pinned tooling with `npm ci` and runs
+`npm run build` in `docs/`. VitePress fails on a link to a missing page, and the site
+configuration's build hook fails on a link to a missing heading. Locally, use the Node.js major
+version in `docs/.nvmrc` (`fnm use` or `nvm use` in `docs/`) and the same two commands; `npm run
+dev` serves the site with live reload.
+
+The [Pages resolution tests](../.github/scripts/pages-test.sh) run in the Linux `checks` job with
+fake `gh` and `curl` commands. They cover SemVer precedence including prerelease numbers above 9,
+yanked and missing versions, index failures, tag format, correction-branch ancestry, files and
+renames outside `docs/`, and Release runs that did not publish. The Pages workflow itself runs only
+on `main` after a release or by dispatch, so its first deployment is part of release
+verification.
 
 ## Clean consumer
 

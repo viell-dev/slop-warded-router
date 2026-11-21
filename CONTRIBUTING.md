@@ -5,15 +5,28 @@ are welcome. Establish scope before proposing a new framework, server implementa
 feature. Describe behavior with synthetic requests and expected outcomes.
 
 Use a branch and pull request against `main`. Both `ci` and `leptos-fixture` are required.
-The former includes Windows/Linux library and package checks and the Linux dependency policy
-check. The latter runs the full fixture when its inputs change and verifies that decision on
-every pull request. The [release procedure](./internals/release.md#before-rc) lists affected paths,
-manual dispatch and tag triggers. After relevant tests and required checks pass, review the
-complete change and record the platforms, Rust version, commands and evidence limits.
+The former includes Windows/Linux library and package checks, the Linux dependency policy
+check and the documentation site build. The latter runs the full fixture when its inputs change
+and verifies that decision on every pull request. The [release
+procedure](./internals/release.md#before-rc) lists affected paths, manual dispatch and tag
+triggers. After relevant tests and required checks pass, review the complete change and record
+the platforms, Rust version, commands and evidence limits.
 
-Releases are distributed through crates.io, with versioned API documentation on docs.rs. Record
-unreleased user-facing changes in the changelog. The [release procedure](./internals/release.md)
-covers registry verification and publishing.
+Run `bash scripts/check.sh` in Bash, which is Git Bash on Windows, for the library, package and
+documentation example checks. To build the documentation site, use the Node.js version in
+`docs/.nvmrc` and run `npm ci` and `npm run build` in `docs/`; `npm run dev` previews it.
+[Verification](./internals/verification.md) describes each check.
+
+Documentation has three areas: the consumer guides in [`docs/`](./docs/), published as the
+[documentation site](https://viell-dev.github.io/slop-warded-router/); the API reference in
+rustdoc, published on docs.rs; and the [maintainer notes](./internals/README.md). A change to
+behavior updates the guides, rustdoc and README it affects in the same pull request. Every Rust
+example on the site is a complete program that CI compiles and runs.
+
+Releases are distributed through crates.io, with versioned API documentation on docs.rs and the
+site built from each release's tag. Record unreleased user-facing changes in the changelog. The
+[release procedure](./internals/release.md) covers registry verification, publishing and site
+deployment.
 
 Report suspected vulnerabilities using the [private GitHub route](./SECURITY.md). Security fixes
 land on `main` in the current 0.1.0 prerelease line.

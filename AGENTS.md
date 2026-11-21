@@ -1,8 +1,9 @@
 # Agent instructions
 
-Read [README.md](./README.md), [CONTRIBUTING.md](./CONTRIBUTING.md), and any applicable design or
-release documentation before changing behavior. This repository is maintained by agents; useful
-verification and honest compatibility claims are essential.
+Read [README.md](./README.md), [CONTRIBUTING.md](./CONTRIBUTING.md), the consumer guides in
+[docs/](./docs/) and the applicable [maintainer notes](./internals/README.md) before changing
+behavior. This repository is maintained by agents; useful verification and honest compatibility
+claims are essential.
 
 ## Scope and semantics
 
@@ -32,8 +33,25 @@ verification and honest compatibility claims are essential.
 - Unexpected failures need triage against the baseline. Do not weaken checks or hide failures to
   obtain green results. Track actionable defects and deferred limits in issues.
 - Follow CONTRIBUTING's recurring upstream-test review during early releases. Record relevant
-  cases and semantic differences in `internals/upstream-tests.md`; do not mirror entire foreign suites.
+  cases and semantic differences in `internals/upstream-tests.md`; do not mirror entire foreign
+  suites.
 - Keep human-facing Markdown prose near 100 columns. Preserve unrelated content and formatting.
+
+## Documentation
+
+- Documentation has three areas: consumer guides in `docs/` (a VitePress site on GitHub Pages),
+  the API reference in rustdoc (docs.rs), and maintainer notes in `internals/`. Put each fact
+  in the area that owns it and link to it from the others instead of repeating it.
+- Update the affected guides, rustdoc and README in the pull request that changes behavior, and
+  add an [upgrading](./docs/upgrading.md) section for changes that need consumer action. Verify
+  behavior claims against the source and tests.
+- Write guides for a newcomer: the concept in plain words, a complete example, then the rules and
+  edge cases. Site examples are complete programs with their `use` lines and no rustdoc hidden
+  lines, because VitePress shows them as written; `cargo test --package warded-docs` runs them.
+  Mark code blocks with one of the languages `docs/pages.rs` allows.
+- The site describes the latest release. Keep install pins and version-pinned links at the
+  package version; corrections to a released site follow the
+  [release procedure](./internals/release.md#correcting-the-released-site).
 - Use `.github/labels.json` as the shared label catalog. Every issue and pull request needs one
   `Type:` label and at most one `Status:` label. `Needs:` identifies the person who must act.
 
@@ -41,9 +59,10 @@ verification and honest compatibility claims are essential.
 
 Use SemVer prerelease stages. Alpha is for changes to scope and core behavior. Beta begins when the
 agreed feature scope is implemented and the beta gates pass. RC identifies a specific source
-candidate intended to become the stable release. See the [release procedure](./internals/release.md).
-Before the first RC, record the owner's hands-on use of the published candidate in
-[#26](https://github.com/viell-dev/slop-warded-router/issues/26) and resolve its blockers.
+candidate intended to become the stable release. See the
+[release procedure](./internals/release.md). Before the first RC, record the owner's hands-on use
+of the published candidate in [#26](https://github.com/viell-dev/slop-warded-router/issues/26) and
+resolve its blockers.
 Independent agent usability reviews cover later candidates and substantial workflow changes.
 
 For the first `0.1.0` release, [issue #8](https://github.com/viell-dev/slop-warded-router/issues/8)

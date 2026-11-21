@@ -1,6 +1,7 @@
 version: 2
 updates:
-  # The library's own manifest and lockfile. The Leptos fixture under
+  # The library's workspace manifest and lockfile, including the documentation
+  # site's example checks under docs/. The Leptos fixture under
   # integration/ pins its upstream starter deliberately and is updated by hand.
   - package-ecosystem: cargo
     directory: /
@@ -17,6 +18,17 @@ updates:
       cargo-patch:
         update-types:
           - patch
+  # The documentation site's tooling. VitePress 2 is pinned to an exact prerelease, and its
+  # updates get their own pull requests; CI builds the site with each.
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - "Type: Maintenance"
+    commit-message:
+      prefix: "Update"
   - package-ecosystem: github-actions
     directory: /
     schedule:
