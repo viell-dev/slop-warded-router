@@ -5,3 +5,7 @@
 /integration/leptos/end2end/test-results/
 /integration/leptos/end2end/playwright-report/
 /integration/leptos/artifacts/
+/docs/node_modules/
+/docs/.vitepress/cache/
+/docs/.vitepress/dist/
+/docs/.vitepress/.temp/
