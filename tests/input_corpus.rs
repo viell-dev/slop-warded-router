@@ -970,8 +970,9 @@ mod negotiation {
     /// RFC 9110 §12.5.3: a listed coding has its weight, `*` matches codings not listed, and
     /// `*;q=0` excludes an unlisted identity. Giving an unlisted identity a positive `*` weight
     /// too is Warded's documented policy, not an RFC rule. Without `*`, identity is acceptable
-    /// by default with no specified weight, so it decides a choice only when no other offer is
-    /// acceptable.
+    /// by default with no specified weight. When none of the available codings is listed as
+    /// acceptable, the server SHOULD send a response without any content coding, so an unlisted
+    /// identity is the fallback below every acceptable listed coding (Warded's documented rule).
     fn encoding_oracle(codings: &[Weighted], offers: &[&str]) -> Verdict {
         let star = codings
             .iter()
@@ -992,11 +993,7 @@ mod negotiation {
                 None => 0,
             });
         }
-        match (default, preferred(&weights)) {
-            (Some(identity), None) => Ok(Some(identity)),
-            (Some(_), Some(_)) => Err(Undocumented),
-            (None, choice) => Ok(choice),
-        }
+        Ok(preferred(&weights).or(default))
     }
 
     const LANGUAGE_RANGES: &[&str] = &[

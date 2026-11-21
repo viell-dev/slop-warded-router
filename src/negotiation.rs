@@ -81,14 +81,17 @@
 //! the client's order of equal-weight ranges. Shared offer sets compute their choice once
 //! per immutable [`Head`] and limits; independent conditions parse the field each time.
 //!
-//! Parsing, quality syntax, quoting, media-range matching, and encoding negotiation come
-//! from `parse-net`; media precedence and language selection follow Warded's own rules.
+//! An `identity` encoding that the field weights neither by name nor through `*` ranks
+//! below every acceptable listed coding.
+//!
+//! Parsing, quality syntax, quoting, media-range matching, and encoding weights come from
+//! `parse-net`; media precedence, language selection and the rank of an unlisted `identity`
+//! coding follow Warded's own rules.
 //! The [content negotiation guide](https://viell-dev.github.io/slop-warded-router/negotiation.html)
 //! works through wildcards, exclusions, media types, encodings and limits.
 
 use crate::{Captures, DefinitionError, Head, MatchError, MatchResult, Matcher};
 use http::header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, HeaderName};
-use parse_net::negotiate::{MalformedPolicy, Negotiator, Outcome};
 use std::{
     borrow::Cow,
     collections::{BTreeSet, HashMap},
@@ -196,6 +199,8 @@ struct OfferSet {
 ///
 /// Media, encoding, and basic filtering ties use server offer order. Lookup
 /// uses client range order among equal weights and offer order for a default.
+/// An `identity` encoding that no `identity` or `*` member weights is preferred
+/// only when no other offer is acceptable.
 ///
 /// Share one set among routes that are alternatives with otherwise identical conditions.
 /// If a route's other conditions can fail while the set still prefers its offer, no
@@ -276,6 +281,28 @@ impl Offers {
         Self::new(Field::Language(mode), values)
     }
     /// Supported content codings; this does not compress a response.
+    ///
+    /// An offer takes the weight of its listed coding (`x-gzip` is `gzip`), otherwise of `*`.
+    /// `identity` is acceptable unless `identity;q=0`, or `*;q=0` without an `identity` member,
+    /// refuses it. Without an `identity` or `*` member it has no weight: it is preferred only
+    /// when no other offer is acceptable, as RFC 9110 section 12.5.3 asks. An empty field
+    /// accepts only `identity`, and an absent field prefers the first offer.
+    ///
+    /// ```
+    /// use http::Request;
+    /// use warded::{Head, Matcher, negotiation::Offers};
+    ///
+    /// let codings = Offers::encodings(["identity", "gzip"])?;
+    /// let prefers = |value: &str, offer: &str| -> Result<bool, Box<dyn std::error::Error>> {
+    ///     let request = Request::builder().header("accept-encoding", value).body(())?;
+    ///     let head = Head::from_request(&request);
+    ///     Ok(codings.selected(offer)?.evaluate(&head)?.is_some())
+    /// };
+    /// assert!(prefers("gzip;q=0.5", "gzip")?);
+    /// assert!(prefers("gzip;q=0", "identity")?);
+    /// assert!(prefers("identity, gzip;q=0.5", "identity")?);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn encodings(
         values: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<Self, DefinitionError> {
@@ -384,16 +411,7 @@ fn choose(head: &Head<'_>, offers: &OfferSet, limits: Limits) -> Choice {
     match offers.field {
         Field::Media => scoring::media(value.as_deref(), &values, limits.parser),
         Field::Language(mode) => scoring::language(value.as_deref(), &values, mode, limits.parser),
-        Field::Encoding => match Negotiator::new()
-            .limits(limits.parser)
-            .on_malformed(MalformedPolicy::Refuse)
-            .encoding(value.as_deref(), &values)
-        {
-            Outcome::Chosen { index, .. } => Ok(Some(index)),
-            Outcome::NoneAcceptable => Ok(None),
-            Outcome::Refused(error) => Err(error.to_string()),
-            _ => Err("unexpected encoding negotiation result under refusal policy".into()),
-        },
+        Field::Encoding => scoring::encoding(value.as_deref(), &values, limits.parser),
     }
 }
 
@@ -440,6 +458,10 @@ pub fn accepts_language(
     Offers::languages([offer], mode)?.selected(offer)
 }
 /// Test one content coding, including identity and absence/empty-field rules.
+///
+/// This answers only whether the coding is acceptable. An unlisted `identity` is acceptable
+/// unless `*;q=0` refuses it, even where a shared [`Offers::encodings`] set prefers a listed
+/// coding.
 pub fn accepts_encoding(offer: &str) -> Result<Negotiated, DefinitionError> {
     Offers::encodings([offer])?.selected(offer)
 }

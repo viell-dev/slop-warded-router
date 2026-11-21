@@ -530,8 +530,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         (Some("gzip"), "gzip file"),
         (Some("x-gzip"), "gzip file"),
         (Some("br;q=0.5, gzip;q=0.8, identity;q=0.1"), "gzip file"),
-        // An unlisted identity counts as fully acceptable.
-        (Some("br;q=0.5, gzip;q=0.8"), "plain file"),
+        // An unlisted identity has no weight, so any acceptable listed coding beats it.
+        (Some("br;q=0.5, gzip;q=0.8"), "gzip file"),
+        // It is the fallback when no listed coding is acceptable or offered.
+        (Some("gzip;q=0"), "plain file"),
+        (Some("deflate"), "plain file"),
         (None, "Brotli file"),
         (Some(""), "plain file"),
         (Some("gzip;q=0, *"), "Brotli file"),
@@ -555,10 +558,13 @@ Encodings follow the HTTP rules for `Accept-Encoding` in [RFC
 9110](https://www.rfc-editor.org/rfc/rfc9110#name-accept-encoding):
 
 - `identity`, meaning no compression, is acceptable unless the field excludes it with
-  `identity;q=0`, or with `*;q=0` and no `identity` entry. When the field does not list
-  `identity`, it takes the weight of `*` if there is one, and otherwise weight 1. That is why
-  `br;q=0.5, gzip;q=0.8` selects the plain file. List compressed offers before `identity` so they
-  win ties with it.
+  `identity;q=0`, or with `*;q=0` and no `identity` entry. An `identity` entry gives it a weight
+  like any other coding, and without one it takes the weight of `*`. With neither, it has no
+  weight: the set selects it only when none of the listed codings you offer is acceptable. That is
+  why `br;q=0.5, gzip;q=0.8` selects the gzip file and `deflate` the plain file. When `*` weights
+  `identity`, list compressed offers before it so they win ties with it.
+  0.1.0-beta.3 gave an unlisted `identity` weight 1 instead, so `br;q=0.5, gzip;q=0.8` selected
+  the plain file; see [upgrading](./upgrading.md#from-0-1-0-beta-3).
 - An empty `Accept-Encoding` accepts only `identity`.
 - Without the field, any coding is acceptable, and the set chooses its first offer.
 - A coding takes the weight of its own entry, otherwise the weight of `*`. A coding other than

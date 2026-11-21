@@ -46,8 +46,12 @@ edge cases: a zero-quality lookup range refuses only an equal offer, lookup coun
 last range in priority, basic filtering breaks equal weights by the longer range, and media
 specificity stops counting at 63 parameters. The lookup and specificity rules are documented
 choices; the basic-filtering tie departs from parse-net's own description, which gives equal
-weights to the earlier offer as Warded does. `oxilangtag` validates concrete well-formed server
-tags independently of client negotiation.
+weights to the earlier offer as Warded does. Encoding selection keeps parse-net's weights and
+acceptability rules, except that an unlisted `identity` ranks below every acceptable listed coding.
+parse-net 0.10.0 weights it as `q=1`, a weight RFC 9110 §12.5.3 does not assign. Its documented
+contract covers acceptability, which it meets, so Warded re-ranks that one choice locally rather
+than reporting a defect ([#33](https://github.com/viell-dev/slop-warded-router/issues/33)).
+`oxilangtag` validates concrete well-formed server tags independently of client negotiation.
 
 The initial alpha.2 candidate used `language-tags`, whose private-use branch accepted malformed
 subtags. Its own README recommends `oxilangtag` for syntax-only validation. The latter requires no
@@ -155,6 +159,11 @@ files](../docs/negotiation.md#serve-precompressed-files). Their rationale:
   counting past the 63 at which parse-net's own specificity stops.
 - RFC 9110 §12.5.3 lets `identity;q=0`, or `*;q=0` without an `identity` entry, exclude an
   unlisted identity; Warded's policy also gives an unlisted identity a positive `*` weight.
+- Without an `identity` entry or a `*` member, the same section gives identity no weight and asks
+  for no coding when none of the available codings is listed as acceptable. Warded therefore uses
+  identity only as that fallback: it never beats an acceptable listed coding on weight or offer
+  order. Treating it as `q=1` would serve an uncompressed file to a client that listed only
+  lowered codings.
 - Lookup truncation follows RFC 4647 section 3.4, including consecutive one-character subtags
   ([issue #21](https://github.com/viell-dev/slop-warded-router/issues/21),
   `tests/lookup_truncation.rs`).
