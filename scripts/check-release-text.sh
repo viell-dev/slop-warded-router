@@ -3,8 +3,10 @@
 #
 # A published README cannot be corrected, so it must pin the version being packaged, and its
 # install pins, version-pinned links and the changelog's latest release heading must name only
-# that version. crates.io resolves relative README links against the default branch, so every
-# link must be absolute or an in-page anchor.
+# that version. The documentation site under docs/ is built from the release tag and describes
+# that release, so its pages follow the same rules for pins and pinned links, and one of them
+# must show the install pin. crates.io resolves relative README links against the default
+# branch, so every README link must be absolute or an in-page anchor.
 set -euo pipefail
 
 package_version="${1:?Usage: check-release-text.sh <package version>}"
@@ -60,22 +62,34 @@ readme_links() {
     ' README.md
 }
 
+# The site's pages, without the site tooling's installed packages.
+site_pages=()
+while IFS= read -r -d '' page; do
+    site_pages+=("$page")
+done < <(find docs -name node_modules -prune -o -type f -name '*.md' -print0 | sort -z)
+if ((${#site_pages[@]} == 0)); then
+    echo 'Found no site pages under docs/' >&2
+    exit 1
+fi
+texts=(README.md "${site_pages[@]}")
+
 pin_versions="$(
-    matches -oE "warded@=[^' ]+|^[[:space:]]*warded *= *(\{.*version *= *)?\"=[^\"]+\"" README.md |
-        sed -E 's/.*=//; s/"$//'
+    matches -hoE "warded@=[^' ]+|^[[:space:]]*warded *= *(\{.*version *= *)?\"=[^\"]+\"" \
+        "${texts[@]}" | sed -E 's/.*=//; s/"$//'
 )"
 link_versions="$(
-    matches -oE 'slop-warded-router/(blob|tree)/[0-9][^/)#>]*|(crates|docs\.rs)/warded/[0-9][^/)#>]*' \
-        README.md | sed -E 's#.*/##; s/[.,;:]+$//'
+    matches -hoE 'slop-warded-router/(blob|tree)/[0-9][^/)#>]*|(crates|docs\.rs)/warded/[0-9][^/)#>]*' \
+        "${texts[@]}" | sed -E 's#.*/##; s/[.,;:]+$//'
 )"
 changelog_version="$(matches -m 1 -E '^## [0-9]' CHANGELOG.md | sed -E 's/^## ([^ ]+).*/\1/')"
 release_versions="$(
     printf '%s\n' "$pin_versions" "$link_versions" "$changelog_version" | sed '/^$/d' | sort -u
 )"
+install_pin="warded = \"=$package_version\""
 if [[ "$release_versions" != "$package_version" || "$changelog_version" != "$package_version" ]] ||
-    ! grep -qF "warded = \"=$package_version\"" README.md; then
-    printf 'README and CHANGELOG must pin and name only %s; found:\n%s\n' "$package_version" \
-        "$release_versions" >&2
+    ! grep -qF "$install_pin" README.md || ! grep -qF "$install_pin" "${site_pages[@]}"; then
+    printf 'README, site pages and CHANGELOG must pin and name only %s; found:\n%s\n' \
+        "$package_version" "$release_versions" >&2
     exit 1
 fi
 links="$(readme_links)"

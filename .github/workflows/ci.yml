@@ -33,6 +33,9 @@ jobs:
       - name: Test the release checks
         if: runner.os == 'Linux'
         run: bash .github/scripts/release-test.sh
+      - name: Test the Pages release resolution
+        if: runner.os == 'Linux'
+        run: bash .github/scripts/pages-test.sh
 
   dependencies:
     runs-on: ubuntu-latest
@@ -58,13 +61,37 @@ jobs:
       - name: Check advisories, licenses, bans and sources
         run: cargo-deny --locked check
 
+  # The documentation site builds with VitePress, which fails on links to missing pages; the
+  # site configuration also fails on links to missing headings. The checks job runs its Rust
+  # examples. The Pages workflow deploys the site from release tags only.
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: docs/.nvmrc
+      - name: Install the pinned site tooling
+        run: npm ci --no-audit --no-fund
+      - name: Build the site
+        run: npm run build
+
   ci:
     if: always()
-    needs: [checks, dependencies]
+    needs: [checks, dependencies, site]
     runs-on: ubuntu-latest
     steps:
-      - name: Require every platform and dependency check
+      - name: Require every platform, dependency and site check
         env:
           CHECK_RESULT: ${{ needs.checks.result }}
           DEPENDENCY_RESULT: ${{ needs.dependencies.result }}
-        run: test "$CHECK_RESULT" = success && test "$DEPENDENCY_RESULT" = success
+          SITE_RESULT: ${{ needs.site.result }}
+        run: |
+          test "$CHECK_RESULT" = success && test "$DEPENDENCY_RESULT" = success &&
+            test "$SITE_RESULT" = success

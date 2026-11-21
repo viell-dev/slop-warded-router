@@ -195,13 +195,14 @@ expect_failure 'invalid Warded index response' index check "$TEST_VERSION" "$TES
 published "$TEST_VERSION" "$(printf '%064d' 1 | tr 0 A)" > "$TEST_INDEX"
 expect_failure 'invalid Warded index response' index check "$TEST_VERSION" "$TEST_CHECKSUM"
 
-# The release text check runs on copies of the repository's README and changelog.
+# The release text check runs on copies of the repository's README, changelog and site pages.
 root="$(cd "$scripts/../.." && pwd)"
 release_version="$(sed -nE 's/^version = "([^"]+)"$/\1/p' "$root/Cargo.toml" | head -n 1)"
 text_case() {
     rm -rf -- "$scratch/text"
-    mkdir "$scratch/text"
+    mkdir -p "$scratch/text/docs"
     cp "$root/README.md" "$root/CHANGELOG.md" "$scratch/text/"
+    cp "$root"/docs/*.md "$scratch/text/docs/"
 }
 text_check() {
     (cd "$scratch/text" && bash "$root/scripts/check-release-text.sh" "$release_version")
@@ -263,6 +264,36 @@ text_case
 rm "$scratch/text/CHANGELOG.md"
 expect_failure 'CHANGELOG.md' text_check
 
+# Site pages follow the README's rules for pins and pinned links, and one shows the install pin.
+# Relative links are the site's own and need not be absolute.
+site_append() {
+    printf '%b' "$1" >> "$scratch/text/docs/getting-started.md"
+}
+text_case
+site_append '\nSee [selection](./selection.md).\n'
+text_check
+stale site_append "\n${fence}sh\ncargo add 'warded@=0.0.0-stale'\n${fence}\n"
+stale site_append "\n${fence}toml\nwarded = { version = \"=0.0.0-stale\" }\n${fence}\n"
+stale site_append '\n[api]: https://docs.rs/warded/0.0.0-stale/warded/\n'
+stale site_append '\nSee https://github.com/viell-dev/slop-warded-router/blob/0.0.0-stale/README.md.\n'
+nested_page() {
+    mkdir -p "$scratch/text/docs/guide"
+    printf '[x]: https://crates.io/crates/warded/0.0.0-stale\n' > "$scratch/text/docs/guide/page.md"
+}
+stale nested_page
+without_site_pin() {
+    sed -i "/warded = \"=$release_version\"/d" "$scratch/text"/docs/*.md
+}
+stale without_site_pin
+# Pages of installed site tooling are not site pages.
+text_case
+mkdir -p "$scratch/text/docs/node_modules/tool"
+printf "cargo add 'warded@=0.0.0-stale'\n" > "$scratch/text/docs/node_modules/tool/README.md"
+text_check
+text_case
+rm -r "$scratch/text/docs"
+expect_failure 'Found no site pages under docs/' text_check
+
 # A grep failure on a readable file, such as a read error, must stop the check rather than read
 # as "no match". The wrapper fails the calls whose arguments include FAIL_GREP_ON.
 mkdir "$scratch/failing-grep"
@@ -277,7 +308,7 @@ fi
 exec "$REAL_GREP" "$@"
 BASH
 chmod +x "$scratch/failing-grep/grep"
-for option in -oE -vE; do
+for option in -hoE -vE; do
     text_case
     FAIL_GREP_ON="$option" PATH="$scratch/failing-grep:$PATH" \
         expect_failure 'simulated read error' text_check
