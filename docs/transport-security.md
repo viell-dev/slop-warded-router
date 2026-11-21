@@ -74,8 +74,10 @@ The repository's [server example] serves a cleartext listener this way.
 
 When a proxy terminates TLS, the application sees a plain connection, and only the proxy knows
 how the client connected. Set `TransportSecurity` from the proxy's report only for connections
-that come from the proxy, and only from a header the proxy always overwrites. A connection from
-anywhere else is cleartext as far as the application can tell:
+that come from the proxy, and only from a header the proxy always overwrites. Accept exactly one
+value: a proxy that appends to the header instead keeps the value the client sent, so a second
+value means the report cannot be trusted. A connection from anywhere else is cleartext as far as
+the application can tell:
 
 ```rust
 use axum::{body::Body, extract::ConnectInfo};
@@ -93,15 +95,15 @@ fn set_transport_security(mut request: Request<Body>) -> Request<Body> {
         .get::<ConnectInfo<SocketAddr>>()
         .map(|info| info.0.ip());
     let security = match peer {
-        Some(PROXY) => match request
-            .headers()
-            .get("x-forwarded-proto")
-            .map(|value| value.as_bytes())
-        {
-            Some(b"https") => TransportSecurity::Https,
-            Some(b"http") => TransportSecurity::Unsecure,
-            _ => TransportSecurity::Unknown,
-        },
+        Some(PROXY) => {
+            // Only a single value can be the proxy's own; a client may have sent another.
+            let mut values = request.headers().get_all("x-forwarded-proto").iter();
+            match (values.next().map(|value| value.as_bytes()), values.next()) {
+                (Some(b"https"), None) => TransportSecurity::Https,
+                (Some(b"http"), None) => TransportSecurity::Unsecure,
+                _ => TransportSecurity::Unknown,
+            }
+        }
         // A direct connection from anywhere else is plain HTTP to this application.
         Some(_) => TransportSecurity::Unsecure,
         // Without the peer address nothing is known, so security conditions report an error.
@@ -112,10 +114,12 @@ fn set_transport_security(mut request: Request<Body>) -> Request<Body> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let from = |address: [u8; 4], proto: &str| -> Result<Request<Body>, http::Error> {
-        let mut request = Request::builder()
-            .header("x-forwarded-proto", proto)
-            .body(Body::empty())?;
+    let from = |address: [u8; 4], protos: &[&str]| -> Result<Request<Body>, http::Error> {
+        let mut request = Request::builder();
+        for proto in protos {
+            request = request.header("x-forwarded-proto", *proto);
+        }
+        let mut request = request.body(Body::empty())?;
         let peer = SocketAddr::from((address, 40_000));
         request.extensions_mut().insert(ConnectInfo(peer));
         Ok(set_transport_security(request))
@@ -124,12 +128,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         |request: Request<Body>| request.extensions().get::<TransportSecurity>().copied();
 
     assert_eq!(
-        security(from([10, 0, 0, 2], "https")?),
+        security(from([10, 0, 0, 2], &["https"])?),
         Some(TransportSecurity::Https)
+    );
+    // A proxy that appended its value after the client's: neither value is trusted.
+    assert_eq!(
+        security(from([10, 0, 0, 2], &["https", "http"])?),
+        Some(TransportSecurity::Unknown)
     );
     // Another client cannot claim HTTPS by sending the header itself.
     assert_eq!(
-        security(from([203, 0, 113, 9], "https")?),
+        security(from([203, 0, 113, 9], &["https"])?),
         Some(TransportSecurity::Unsecure)
     );
     // A server set up without connection information leaves the context unknown.
