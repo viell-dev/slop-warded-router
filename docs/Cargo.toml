@@ -17,3 +17,11 @@ http-body-util = "0.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
 tower = { version = "0.5.3", features = ["util", "limit"] }
 warded = { path = ".." }
+
+# The root package's lints, for the page checks in pages.rs.
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

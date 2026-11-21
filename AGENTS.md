@@ -36,6 +36,8 @@ claims are essential.
   cases and semantic differences in `internals/upstream-tests.md`; do not mirror entire foreign
   suites.
 - Keep human-facing Markdown prose near 100 columns. Preserve unrelated content and formatting.
+- Use `.github/labels.json` as the shared label catalog. Every issue and pull request needs one
+  `Type:` label and at most one `Status:` label. `Needs:` identifies the person who must act.
 
 ## Documentation
 
@@ -52,8 +54,6 @@ claims are essential.
 - The site describes the latest release. Keep install pins and version-pinned links at the
   package version; corrections to a released site follow the
   [release procedure](./internals/release.md#correcting-the-released-site).
-- Use `.github/labels.json` as the shared label catalog. Every issue and pull request needs one
-  `Type:` label and at most one `Status:` label. `Needs:` identifies the person who must act.
 
 ## Releases
 

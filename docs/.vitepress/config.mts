@@ -103,9 +103,11 @@ export default defineConfig({
     search: { provider: "local" },
     outline: { level: [2, 3] },
     socialLinks: [{ icon: "github", link: repository }],
+    // Changes start on main, where pull requests go; a fix to the released site is then also
+    // applied to its correction branch, as the release procedure describes.
     editLink: {
       pattern: `${repository}/edit/main/docs/:path`,
-      text: "Edit this page on GitHub",
+      text: "Suggest a change to this page on main",
     },
     footer: {
       message: `Agent-maintained · <a href="${repository}/blob/${version}/LICENSE-MIT">MIT</a> OR <a href="${repository}/blob/${version}/LICENSE-APACHE">Apache-2.0</a>`,

@@ -248,7 +248,9 @@ commit against the release record.
 ### Correcting the released site
 
 Corrections fix the released site without a new version. They may change only `docs/`: page
-text, examples and the site's own tooling.
+text, examples and the site's own tooling. Each page's "suggest a change" link opens its source
+on `main`, because pull requests go there; when such a change corrects the released site, apply
+it to the correction branch too.
 
 1. If the release has no correction branch yet, create one at its tag:
    `git push origin "refs/tags/$version:refs/heads/site-$version"`.
@@ -256,7 +258,8 @@ text, examples and the site's own tooling.
    `site-`. CI builds the site and runs its examples against the release's source.
 3. After it merges, dispatch **Pages** on `main` with `tag` set to the version and `corrections`
    enabled. The `version.json` then names the correction branch's commit beside the tag's.
-4. Apply the same correction to `main` in a separate pull request, so the next release keeps it.
+4. Apply the same correction to `main` in a separate pull request, unless it started there, so
+   the next release keeps it.
 
 The next release's site replaces the corrected one. Keep correction branches: they record what
 was deployed. A Pages failure leaves the previous deployment in place; fix the cause and run the

@@ -14,7 +14,8 @@ package_manifest="$package_target/package/warded-$package_version/Cargo.toml"
 bash scripts/check-release-text.sh "$package_version"
 
 cargo fmt --all -- --check
-cargo clippy --all-features --all-targets --locked -- -D warnings
+# The workspace includes the documentation example crate, whose page checks are linted too.
+cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
 cargo test --all-features --locked
 cargo test --no-default-features --locked
 cargo test --no-default-features --features tower --locked
