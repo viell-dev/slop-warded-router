@@ -10,7 +10,7 @@ package_version="${package_id##*[@#]}"
 package_target="${CARGO_TARGET_DIR:-target}"
 package_manifest="$package_target/package/warded-$package_version/Cargo.toml"
 
-# The README and changelog must name the packaged version, and README links must be absolute.
+# The README, site pages and changelog must name the packaged version; README links are absolute.
 bash scripts/check-release-text.sh "$package_version"
 
 cargo fmt --all -- --check
@@ -19,6 +19,8 @@ cargo test --all-features --locked
 cargo test --no-default-features --locked
 cargo test --no-default-features --features tower --locked
 cargo test --no-default-features --features negotiation --locked
+# The documentation site's Rust examples, and the check that every page runs them.
+cargo test --package warded-docs --locked
 export RUSTDOCFLAGS="-D warnings"
 cargo doc --all-features --no-deps --locked
 cargo run --example basic --locked
