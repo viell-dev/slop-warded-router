@@ -13,6 +13,21 @@ Changes on `main` appear here before the next release.
 - Add `matchers::query()`, which matches only the QUERY method
   ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008)), like `get()` and `post()`. Matchers still
   never read the request content. [#30](https://github.com/viell-dev/slop-warded-router/issues/30)
+- Add the [documentation site](https://viell-dev.github.io/slop-warded-router/), deployed from
+  each release's tag, with guides for getting started, selection order, paths, request
+  conditions, transport security, content negotiation, Tower and Axum, custom matchers,
+  troubleshooting, limits, versions and upgrading. The negotiation guide works through languages
+  with a default, lookup against basic filtering, weights and exclusions, absent, empty and
+  malformed fields, `Vary`, media types, encodings and limits.
+  [#29](https://github.com/viell-dev/slop-warded-router/issues/29)
+- Rewrite the README around a language negotiation example, replacing an exact `Accept-Language`
+  comparison, and add worked examples to the crate and `negotiation` rustdoc. Document existing
+  behavior: without `*`, an unlisted `identity` coding has weight 1, so it can outrank codings
+  the client lowered, and a path segment holds at most one parameter.
+- Every Rust example on the site compiles and runs in required CI on Windows and Linux. CI also
+  builds the site, failing on links to missing pages or headings, and the release text check
+  covers the site's install pins and versioned links. Maintainer notes move to `internals/`.
+  These documentation changes leave library behavior unchanged.
 - Release tooling: the repository check also rejects a missing README version pin, stale pins in
   any form, a missing changelog release heading and relative README links outside code blocks.
   The release workflow installs the toolchain `rust-toolchain.toml` names, and its publication

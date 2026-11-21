@@ -24,11 +24,14 @@ available. Ordinary defects that are not security problems belong in
 In scope are request-head selection, capture handling, negotiation, and the optional Tower
 dispatch boundary: for example a request reaching a route whose declared conditions it does not
 meet, a panic or unbounded work caused by request input, or a body read during selection.
+Documentation that would lead to an unsafe configuration, such as guidance to trust a header a
+client can send, is in scope too.
 
 Warded implements no HTTP server, TLS, authentication or proxy trust. A `secured()` condition is
 only as trustworthy as the `TransportSecurity` value the host application supplies; report faults
 in those components to their own projects. The Leptos application under `integration/` is a test
-fixture and is not distributed.
+fixture, and the `warded-docs` crate under `docs/` only runs the documentation site's examples;
+neither is distributed.
 
 The required `ci` check runs `cargo-deny --locked check` against the RustSec advisory database
 and enforces the [dependency policy](./deny.toml). Fixes also go through the required

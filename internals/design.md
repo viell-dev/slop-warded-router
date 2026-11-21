@@ -5,6 +5,12 @@ then executes exactly one service. This makes route applicability independent of
 and body decoding. Custom predicates should be bounded and free of observable effects; the type
 system excludes a body argument but cannot make arbitrary captured state pure.
 
+This note records why the design is as it is. The consumer documentation states the resulting
+rules with examples: [how selection works](../docs/selection.md),
+[paths and captures](../docs/paths.md), [content negotiation](../docs/negotiation.md),
+[Tower and Axum](../docs/tower.md) and [scope and limits](../docs/limits.md). Change both when a
+rule changes.
+
 The matching trait and local `Selector` have no thread-safety requirement; `SyncSelector` retains
 `Send + Sync` bounds for a shared table without requiring Tower. The optional `Router` adapter
 uses cloneable `Send + Sync` Tower services and matchers. A selector returns a borrowed target and

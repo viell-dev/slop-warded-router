@@ -1,17 +1,34 @@
 # Release procedure
 
-Distribute Warded through [crates.io](https://crates.io/crates/warded). The
-[docs.rs API reference](https://docs.rs/warded) and README are the documentation site. Rustdoc
-provides searchable, versioned API documentation built from the package. The README covers
-installation, examples, feature selection and support limits. A separate site would duplicate
-these surfaces for a library of this size.
+Distribute Warded through [crates.io](https://crates.io/crates/warded). Consumers read three
+documentation surfaces, described in the [maintainer notes index](./README.md):
 
-Link to docs.rs for the exact published version, using the latest installable release as the
-public default. Check the version selector when working with a prerelease. The README on `main`
-and the [Unreleased changelog](../CHANGELOG.md#unreleased) identify behavior awaiting publication.
-Released READMEs link behavior guides and examples at their source tag. Corrections to released
-documentation ship in the next version. To try unreleased work, use the README's git dependency
-with a full commit SHA and build rustdoc from that revision.
+- The [documentation site](https://viell-dev.github.io/slop-warded-router/), built from `docs/`
+  with VitePress 2 and deployed to GitHub Pages. It holds the task guides: installation, selection,
+  negotiation, Tower integration, troubleshooting, limits, versions and upgrading.
+- The [docs.rs API reference](https://docs.rs/warded), built from each published package.
+- The README, which crates.io shows for each published version.
+
+### Documentation versions
+
+- **The site's public default is the latest installable release.** Only the
+  [Pages workflow](../.github/workflows/pages.yml) deploys it, from that release's tag or from the
+  release's `site-<version>` correction branch, and it refuses a version that is not the newest
+  non-yanked version on crates.io. Its `version.json` records the version, the tag's commit and the
+  commit the site was built from.
+- **`docs/` on `main` describes `main`**, including unreleased changes, as the README on `main`
+  does. The [Unreleased changelog](../CHANGELOG.md#unreleased) identifies them. CI builds the site
+  and runs its examples on every pull request, but nothing deploys from `main`.
+- **docs.rs is versioned by the package.** Link to the exact published version from the README
+  and the site. Rustdoc corrections ship in the next version.
+- **Released READMEs and site pages link guides and examples at their source tag.** The release
+  text check in `scripts/check.sh` requires install pins and version-pinned links in both to name
+  the package version.
+- **Unreleased work** is tried with the README's git dependency on a full commit SHA. Build its
+  rustdoc with `cargo doc --open`, and its site with `npm ci` and `npm run dev` in `docs/`.
+
+Site corrections between releases follow [correcting the released
+site](#correcting-the-released-site) without a new version or a moved tag.
 
 ## Release stages
 
@@ -70,8 +87,10 @@ and checks both compilation modes.
 ## Verify the exact release commit
 
 1. Prepare a release PR with the version in Cargo.toml and both lockfiles, the README status,
-   install commands and versioned links, and the changelog; `scripts/check.sh` fails if they name
-   another version or a README link is relative. For `0.1.0-beta.3` the release notes link the
+   install commands and versioned links, the site pages' install pins and versioned links, the
+   [upgrading page](../docs/upgrading.md) for any change that needs consumer action, and the
+   changelog; `scripts/check.sh` fails if they name another version or a README link is
+   relative. For `0.1.0-beta.3` the release notes link the
    [hands-on request](https://github.com/viell-dev/slop-warded-router/issues/26). Review the
    complete PR and pass required CI on its final head. After integration, verify the commit and
    tree against the reviewed head and refresh any evidence invalidated by integration.
@@ -177,11 +196,71 @@ The workflow uploads only when the version is missing, then confirms the checksu
   `bash scripts/check-clean-consumer.sh --registry 0.1.0-beta.3`. It tests fresh installation,
   an update from source beta.2, all four feature combinations, rustdoc, removal and recovery.
   Pass the previous published version for later registry-to-registry updates.
-- Point the repository's About website at the [docs.rs reference](https://docs.rs/warded) once it
-  builds, so the homepage leads to the current release documentation.
+- Check the [deployed site](#documentation-site): its `version.json` names the version and the
+  release commit, the navigation bar shows the version, and the getting-started page installs it.
+  Keep the repository's About website pointing at the site, which leads to the current release's
+  guides and links its docs.rs reference.
 - Record evidence in the release tracker. Mark the beta.3 hands-on request ready with verified
   download, documentation and tag links when these checks pass. Keep the request open until the
   owner's report and resulting work are handled.
+
+## Documentation site
+
+The [Pages workflow](../.github/workflows/pages.yml) builds `docs/` with the VitePress version
+pinned in `docs/package-lock.json` and the Node.js version in `docs/.nvmrc`, writes `version.json`
+and deploys the result. Its [resolution script](../.github/scripts/pages-resolve.sh) and
+[tests](../.github/scripts/pages-test.sh) define what may be deployed. The script refuses:
+
+- a tag that is not an unprefixed version, or does not exist;
+- a version that is not the newest non-yanked Warded version in the crates.io index, so the site
+  cannot go back to an older release or describe an unpublished one;
+- after a Release run, a run whose `publish` job did not succeed, or a tag that names another
+  commit than the run;
+- for corrections, a `site-<version>` branch that does not descend from the tag, or that changes,
+  adds, removes or renames any file outside `docs/`.
+
+### Settings
+
+Configure these before the first deployment. Each is reversible; none affects releases or tags.
+
+1. **Pages:** under **Settings → Pages → Build and deployment**, set **Source** to **GitHub
+   Actions**. This creates the `github-pages` environment.
+2. **Environment:** under **Settings → Environments → github-pages → Deployment branches and
+   tags**, allow only the `main` branch. Both triggers run the workflow on `main`; only its
+   checkout uses the tag or correction branch.
+3. **Correction branches:** add a branch ruleset for `site-*` that requires pull requests and the
+   `ci` status check, blocks force pushes and deletions, and has no bypass. The `leptos-fixture`
+   workflow runs only for pull requests into `main`, so do not require it here. Creating the
+   branch from the tag is the one direct push the ruleset allows.
+4. **About:** set the repository's website to <https://viell-dev.github.io/slop-warded-router/>
+   once the first deployment succeeds.
+
+### Deploy a release's site
+
+A successful Release run that published its version starts the workflow through `workflow_run`.
+It builds the released tag and deploys it. To deploy by hand, for example after fixing a failed
+run, dispatch **Pages** on `main` with `tag` set to the newest release's version and `corrections`
+left off. The first deployment follows the first release whose tag contains `docs/`.
+
+After the run, open the site and its `version.json`, and check the version, tag commit and built
+commit against the release record.
+
+### Correcting the released site
+
+Corrections fix the released site without a new version. They may change only `docs/`: page
+text, examples and the site's own tooling.
+
+1. If the release has no correction branch yet, create one at its tag:
+   `git push origin "refs/tags/$version:refs/heads/site-$version"`.
+2. Open a pull request into `site-$version` from a task branch whose name does not start with
+   `site-`. CI builds the site and runs its examples against the release's source.
+3. After it merges, dispatch **Pages** on `main` with `tag` set to the version and `corrections`
+   enabled. The `version.json` then names the correction branch's commit beside the tag's.
+4. Apply the same correction to `main` in a separate pull request, so the next release keeps it.
+
+The next release's site replaces the corrected one. Keep correction branches: they record what
+was deployed. A Pages failure leaves the previous deployment in place; fix the cause and run the
+workflow again.
 
 ## Recovery
 
@@ -200,5 +279,5 @@ If a published build must be withdrawn, the owner yanks it on crates.io or with
 `cargo yank --version "$version" warded` from a session whose token has the yank scope; the
 publishing credentials do not include it. Yanking prevents new resolutions, but existing lockfiles
 may continue to use it. Record the impact and ship a corrected version. Never reuse a published
-version, replace its bytes, or move a published tag. Documentation fixes use the same next-version
-procedure.
+version, replace its bytes, or move a published tag. README and rustdoc fixes ship in the next
+version; site fixes can also use [correcting the released site](#correcting-the-released-site).
