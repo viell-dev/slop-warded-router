@@ -9,7 +9,7 @@ documentation surfaces, described in the [maintainer notes index](./README.md):
 - The [docs.rs API reference](https://docs.rs/warded), built from each published package.
 - The README, which crates.io shows for each published version.
 
-### Documentation versions
+## Documentation versions
 
 - **The site's public default is the latest installable release.** Only the
   [Pages workflow](../.github/workflows/pages.yml) deploys it, from that release's tag or from the
