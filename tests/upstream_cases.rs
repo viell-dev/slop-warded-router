@@ -166,7 +166,7 @@ fn absolute_form_uses_the_path_but_keeps_the_original_uri() {
     let request = request(uri);
     let rule = path("/people/{id}")
         .unwrap()
-        .and(query_pair("tag", "second"));
+        .and(param_pair("tag", "second"));
     let captures = rule
         .evaluate(&Head::from_request(&request))
         .unwrap()

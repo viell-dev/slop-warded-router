@@ -97,12 +97,12 @@ when there is no custom fallback.
 thread-safe matchers and targets in shared server state. String-taking raw helpers own their
 configuration, including when constructed from temporary borrowed strings.
 
-Use `path("/orders/{id}")?` or `path("/assets/{*rest}")?` for raw captures. Exact paths and raw
-query helpers do not decode percent escapes, fold case, clean slashes, or redirect. `header_eq`
-requires exactly one equal raw field value; `header_any_eq` explicitly searches repeated values.
-Semantic negotiation is a separate operation. If a destination later decodes or normalizes paths,
-its interpretation can differ from a raw match; raw deny-style routes are not an authorization
-boundary.
+Use `path("/orders/{id}")?` or `path("/assets/{*rest}")?` for raw captures. Exact paths and the
+raw query-string helpers `param_pair` and `param_present` do not decode percent escapes, fold case,
+clean slashes, or redirect. `header_eq` requires exactly one equal raw field value;
+`header_any_eq` explicitly searches repeated values. Semantic negotiation is a separate operation.
+If a destination later decodes or normalizes paths, its interpretation can differ from a raw match;
+raw deny-style routes are not an authorization boundary.
 
 Refine a successful pattern with `filter` to select by captured values before committing to a
 handler. A predicate can be a free function, closure, newtype parser, or precompiled regex:
@@ -143,8 +143,9 @@ router. HTTPS is distinct from authentication.
 
 `secured_post()` is just `secured().and(post())`; `secured_get_and_head()` is
 `secured().and(get().or(head()))`. These optional compositions add no special registration rule.
-GET alone excludes HEAD. The server still applies HEAD response-body rules.
-`method(http::Method::from_bytes(b"QUERY")?)` and other valid extension methods work without special
+GET alone excludes HEAD. The server still applies HEAD response-body rules. `query()` matches only
+the QUERY method; like every matcher, it never reads the request content. `method()` accepts other
+valid extension methods, such as `http::Method::from_bytes(b"REPORT")?`, without special
 registration. Automatic 405/Allow, OPTIONS, implicit HEAD, redirects and path normalization are
 outside the first release; supply explicit routes or surrounding framework policies as needed.
 

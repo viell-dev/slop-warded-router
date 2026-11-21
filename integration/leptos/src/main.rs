@@ -12,7 +12,7 @@ mod server {
     use tokio::sync::Notify;
     use tower::{make::Shared, service_fn, util::BoxCloneSyncService, ServiceExt};
     use warded::{
-        matchers::{exact_path, get, head, header_eq, path, post, query_pair},
+        matchers::{exact_path, get, head, header_eq, param_pair, path, post},
         Captures, Matcher, TransportSecurity,
     };
     use warded_leptos_probe::app::*;
@@ -156,7 +156,7 @@ mod server {
                         get()
                             .and(exact_path("/variants"))
                             .and(header_eq("x-mode", "preview").unwrap())
-                            .and(query_pair("kind", "summary")),
+                            .and(param_pair("kind", "summary")),
                         service_fn(|request: Request<Body>| async move {
                             Ok::<_, Infallible>(
                                 (
