@@ -1,0 +1,19 @@
+[package]
+name = "warded-docs"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Compiles and runs the Rust examples on Warded's documentation site"
+
+[lib]
+path = "pages.rs"
+
+[dev-dependencies]
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
+bytes = "1"
+http = "1.5"
+http-body-util = "0.1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+tower = { version = "0.5.3", features = ["util", "limit"] }
+warded = { path = ".." }

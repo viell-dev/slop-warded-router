@@ -53,3 +53,7 @@ required-features = ["negotiation"]
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
+
+# The documentation site's example checks are an unpublished member; see docs/Cargo.toml.
+[workspace]
+members = ["docs"]
