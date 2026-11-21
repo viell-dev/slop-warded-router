@@ -1,0 +1,116 @@
+name: Pages
+
+# The documentation site describes the latest installable release. After a Release run that
+# published a version, this workflow builds the site from that version's tag and deploys it.
+# Dispatched by hand with the newest release's tag, it deploys that tag's site, or, with
+# `corrections`, the documentation corrections on the tag's site-<version> branch, which must
+# descend from the tag and change nothing outside docs/. A correction therefore never needs a new
+# version or a moved tag, and the site never describes unreleased changes.
+# Either way the workflow runs on main, which the github-pages environment allows; only the
+# checkout uses the tag or the branch. The site's version.json names the version, the tag's commit
+# and the commit the site was built from. CI builds the site on every pull request.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The newest release's tag (an exact version, without a v prefix)
+        required: true
+      corrections:
+        description: Deploy the documentation corrections on the tag's site-<version> branch
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    # A Release run that failed published nothing; the script checks the publish job itself.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      tag-commit: ${{ steps.resolve.outputs.tag-commit }}
+      commit: ${{ steps.resolve.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Choose the tag and the commit
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          CORRECTIONS: ${{ inputs.corrections }}
+          RELEASE_TAG: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_COMMIT: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_JOBS_URL: ${{ github.event.workflow_run.jobs_url }}
+        run: bash .github/scripts/pages-resolve.sh
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.tag != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
+      # This job runs code from a release tag or a site-<version> branch on main's behalf, so it
+      # could write Actions caches that main's workflows restore. It saves no cache of its own.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: docs/.nvmrc
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Install the pinned site tooling
+        working-directory: docs
+        run: npm ci --no-audit --no-fund
+      - name: Build the site
+        working-directory: docs
+        run: npm run build
+      - name: Record what the site was built from
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+          TAG_COMMIT: ${{ needs.resolve.outputs.tag-commit }}
+          COMMIT: ${{ needs.resolve.outputs.commit }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n --arg tag "$TAG" --arg tag_commit "$TAG_COMMIT" --arg commit "$COMMIT" \
+            --arg run "$RUN" \
+            '{version: $tag, tag: {name: $tag, commit: $tag_commit}, commit: $commit, run: $run}' \
+            > docs/.vitepress/dist/version.json
+          cat docs/.vitepress/dist/version.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy the site
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
