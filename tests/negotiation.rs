@@ -228,6 +228,167 @@ fn media_precedence_counts_every_parameter_a_member_can_carry() {
     ));
 }
 
+/// The encoding offer the shared set prefers, checking that no other offer's predicate matches
+/// and that the strict predicates agree.
+fn preferred_encoding<'a>(offers: &[&'a str], value: Option<&str>) -> Option<&'a str> {
+    let set = Offers::encodings(offers.iter().copied()).unwrap();
+    let chosen: Vec<&str> = offers
+        .iter()
+        .copied()
+        .filter(|offer| {
+            let rule = set.selected(offer).unwrap();
+            let matched = outcome(&rule, "accept-encoding", value).unwrap();
+            let strict = outcome(&rule.invalid_is_error(), "accept-encoding", value).unwrap();
+            assert_eq!(matched, strict, "{value:?} {offers:?} {offer}");
+            matched
+        })
+        .collect();
+    assert!(chosen.len() <= 1, "{value:?} {offers:?}: {chosen:?}");
+    chosen.first().copied()
+}
+
+#[test]
+fn an_unlisted_identity_is_chosen_only_when_no_listed_coding_is_acceptable() {
+    // RFC 9110 §12.5.3 gives an unlisted identity no weight; when none of the available codings
+    // is listed as acceptable, the server sends none. parse-net 0.10.0 weights it as q=1 (#33).
+    for (value, codings, expected) in [
+        // Changed from beta.3, which chose identity for each of these.
+        ("gzip;q=0.9", &["gzip"][..], Some("gzip")),
+        ("br;q=0.5, gzip;q=0.8", &["br", "gzip"], Some("gzip")),
+        ("gzip", &["gzip"], Some("gzip")),
+        ("gzip;q=0.001", &["br", "gzip"], Some("gzip")),
+        ("x-gzip;q=0.5", &["gzip"], Some("gzip")),
+        ("gzip;q=0.5", &["x-gzip"], Some("x-gzip")),
+        ("GZIP;q=0.5", &["br", "gzip"], Some("gzip")),
+        // Unchanged: an explicit identity weight competes like any listed coding.
+        ("identity;q=0.5, gzip;q=0.9", &["gzip"], Some("gzip")),
+        ("identity, gzip;q=0.5", &["gzip"], Some("identity")),
+        ("Identity;q=0.6, br;q=0.5", &["br"], Some("identity")),
+        // Unchanged: a `*` weight also applies to an unlisted identity.
+        ("*;q=0.3, gzip;q=0.2", &["gzip"], Some("identity")),
+        ("gzip;q=0.8, *;q=0.4", &["gzip"], Some("gzip")),
+        // Unchanged: identity is the fallback when nothing listed is available or acceptable.
+        ("gzip;q=0.9", &["br"], Some("identity")),
+        ("gzip;q=0", &["gzip"], Some("identity")),
+        ("gzip;q=0, br;q=0", &["br", "gzip"], Some("identity")),
+        // Unchanged: refusals and the empty field.
+        ("*;q=0", &["gzip"], None),
+        ("identity;q=0, gzip;q=0", &["gzip"], None),
+        ("", &["gzip"], Some("identity")),
+        (" , ", &["br", "gzip"], Some("identity")),
+    ] {
+        // Insert identity first, in the middle and last: offer order never decides these.
+        for at in 0..=codings.len() {
+            let mut offers = codings.to_vec();
+            offers.insert(at, "identity");
+            assert_eq!(
+                preferred_encoding(&offers, Some(value)),
+                expected,
+                "{value:?} {offers:?}"
+            );
+        }
+    }
+    // Ties among weights that apply to identity keep offer order, as do other ties.
+    for (value, offers, expected) in [
+        ("*", &["identity", "gzip"][..], "identity"),
+        ("*", &["gzip", "identity"], "gzip"),
+        ("identity, gzip", &["identity", "gzip"], "identity"),
+        ("identity, gzip", &["gzip", "identity"], "gzip"),
+        ("gzip, br", &["identity", "br", "gzip"], "br"),
+    ] {
+        assert_eq!(
+            preferred_encoding(offers, Some(value)),
+            Some(expected),
+            "{value:?} {offers:?}"
+        );
+    }
+    // An absent field states no preference, so the first offer wins.
+    for offers in [&["identity", "gzip"][..], &["gzip", "identity"]] {
+        assert_eq!(preferred_encoding(offers, None), Some(offers[0]));
+    }
+    // Acceptability alone is unchanged: an unlisted identity is acceptable unless refused.
+    let identity = accepts_encoding("identity").unwrap();
+    for (value, acceptable) in [
+        ("gzip;q=0.9", true),
+        ("br;q=0.5, gzip;q=0.8", true),
+        ("*;q=0", false),
+        ("*;q=0, identity;q=0.1", true),
+    ] {
+        assert_eq!(
+            outcome(&identity, "accept-encoding", Some(value)).unwrap(),
+            acceptable,
+            "{value}"
+        );
+    }
+}
+
+#[test]
+fn an_unlisted_identity_keeps_its_offer_index_beyond_parser_offer_groups() {
+    // parse-net weighs encoding offers in groups of 32; identity's removal shifts them.
+    let names: Vec<String> = (0..70).map(|index| format!("c{index}")).collect();
+    for at in [0, 31, 32, 40, 70] {
+        let mut offers: Vec<&str> = names.iter().map(String::as_str).collect();
+        offers.insert(at, "identity");
+        for (value, expected) in [
+            ("c0;q=0.1", Some("c0")),
+            ("c31;q=0.1, c32;q=0.1", Some("c31")),
+            ("c32;q=0.2, c31;q=0.1", Some("c32")),
+            ("c69;q=0.1, c40;q=0.05", Some("c69")),
+            ("c69;q=0", Some("identity")),
+        ] {
+            assert_eq!(
+                preferred_encoding(&offers, Some(value)),
+                expected,
+                "{value} identity at {at}"
+            );
+        }
+    }
+}
+
+#[test]
+fn ranking_an_unlisted_identity_keeps_the_configured_limits_and_error_policy() {
+    let offers = Offers::encodings(["identity", "gzip"]).unwrap();
+    let rules = ["identity", "gzip"].map(|offer| offers.selected(offer).unwrap());
+    // More members than the default bound of 1024, all valid under a wider configured bound.
+    let mut value = String::from("gzip;q=0.5");
+    for index in 0..1100 {
+        value.push_str(&format!(", c{index}"));
+    }
+    let wide = warded::negotiation::Limits::DEFAULT.max_list_members(2048);
+    for (rule, expected) in rules.iter().zip([false, true]) {
+        let strict = rule.clone().parser_limits(wide).invalid_is_error();
+        assert_eq!(
+            outcome(&strict, "accept-encoding", Some(&value)).unwrap(),
+            expected
+        );
+        assert!(matches!(
+            outcome(
+                &rule.clone().invalid_is_error(),
+                "accept-encoding",
+                Some(&value)
+            ),
+            Err(MatchError::InvalidHeader { .. })
+        ));
+    }
+    for value in [
+        "gzip;q=0.5, br;q=2",
+        "gzip;q=0.5;level=1",
+        "gzip;q=0.5,\"br\"",
+    ] {
+        for rule in &rules {
+            assert!(!outcome(rule, "accept-encoding", Some(value)).unwrap());
+            assert!(matches!(
+                outcome(
+                    &rule.clone().invalid_is_error(),
+                    "accept-encoding",
+                    Some(value)
+                ),
+                Err(MatchError::InvalidHeader { .. })
+            ));
+        }
+    }
+}
+
 #[test]
 fn a_positive_encoding_wildcard_also_weights_an_unlisted_identity() {
     // RFC 9110 §12.5.3 specifies only that `*;q=0` excludes an unlisted identity. Applying a

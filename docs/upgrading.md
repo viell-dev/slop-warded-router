@@ -31,3 +31,10 @@ helper for the QUERY method. Their matching is unchanged, and the old names are 
 
 The compiler reports every remaining use of the old names. `matchers::query()` is new and matches
 the QUERY method; see [methods](./conditions.md#methods).
+
+Encoding offer sets also choose differently, without a compile error, when `Accept-Encoding`
+lists neither `identity` nor `*`. An `identity` offer then has no weight and is selected only
+when none of the listed codings you offer is acceptable; 0.1.0-beta.3 gave it weight 1. With
+the offers `br`, `gzip` and `identity`, `br;q=0.5, gzip;q=0.8` now selects `gzip`. Such requests
+reach a compressed route instead of the `identity` one, so check that it sets `Content-Encoding`
+and `Vary: Accept-Encoding`; see [precompressed files](./negotiation.md#serve-precompressed-files).

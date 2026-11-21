@@ -4,12 +4,49 @@
 //! the cases noted below, so only its parsing and range matching are reused here. Its
 //! language lookup refuses only an offer equal to a `q=0` range and counts `*` only as the
 //! last range in priority; its basic filtering breaks equal weights by range length.
+//! Encoding selection is parse-net's, except for the rank of an unlisted `identity`.
 
 use super::{Choice, LanguageMatching};
 use parse_net::{
     Limits, media,
     negotiate::{MalformedPolicy, Negotiator, Outcome, parse_weighted},
 };
+
+// RFC 9110 section 12.5.3 makes an unlisted `identity` acceptable without giving it a weight,
+// and asks for no coding when none of the available codings is listed as acceptable. parse-net
+// 0.10.0 instead weights it as `q=1`, so it outranks lower listed codings and wins offer-order
+// ties. When parse-net chooses an `identity` that no `identity` or `*` member weights, choose
+// again among the other offers and keep `identity` only if none of them is acceptable. Every
+// other answer, including refusals, the empty field and explicit or `*` weights, is parse-net's.
+pub(super) fn encoding(value: Option<&[u8]>, offers: &[&str], limits: Limits) -> Choice {
+    let choose = |offers: &[&str]| match Negotiator::new()
+        .limits(limits)
+        .on_malformed(MalformedPolicy::Refuse)
+        .encoding(value, offers)
+    {
+        Outcome::Chosen { index, .. } => Ok(Some(index)),
+        Outcome::NoneAcceptable => Ok(None),
+        Outcome::Refused(error) => Err(error.to_string()),
+        _ => Err("unexpected encoding negotiation result under refusal policy".into()),
+    };
+    let chosen = choose(offers)?;
+    let identity = chosen.filter(|&index| offers[index].eq_ignore_ascii_case("identity"));
+    // An absent field states no preference, so its first-offer choice stands.
+    let (Some(value), Some(identity)) = (value, identity) else {
+        return Ok(chosen);
+    };
+    // parse-net has just validated this field with the same limits.
+    let members = parse_weighted(value, &limits).map_err(|e| e.to_string())?;
+    if members
+        .iter()
+        .any(|member| member.value == b"*" || member.value.eq_ignore_ascii_case(b"identity"))
+    {
+        return Ok(chosen);
+    }
+    let others = [&offers[..identity], &offers[identity + 1..]].concat();
+    let listed = choose(&others)?.map(|index| index + usize::from(index >= identity));
+    Ok(listed.or(chosen))
+}
 
 /// Wildcard/type specificity, then the number of parameters other than `q`.
 ///
