@@ -236,8 +236,8 @@ absolute "\n~~~\n${fence}\n[x](docs/x.md)\n${fence}\n~~~\n"
 absolute '\n[Guide](<https://example.com/guide>)\n'
 absolute '\n[x](https://example.com "Title")\n'
 absolute "\nSee https://docs.rs/warded/$release_version.\n"
-relative '\nSee [design](./docs/design.md).\n'
-relative '\n[ref]: docs/design.md\n'
+relative '\nSee [design](./internals/design.md).\n'
+relative '\n[ref]: internals/design.md\n'
 relative '\n[guide]:\n  docs/guide.md\n'
 relative '\n[guide]:\t\n  docs/guide.md\n'
 relative '\n[Guide](<docs/guide.md>)\n'

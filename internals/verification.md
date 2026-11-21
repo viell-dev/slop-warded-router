@@ -16,9 +16,10 @@ check](../scripts/check-release-text.sh). That check requires the README and a s
 that version, the install pins and version-pinned links of the README and every site page and the
 latest changelog release heading to name only that version, and every README link to be absolute
 or an in-page anchor. crates.io resolves relative README links against the default branch. The
-script then runs formatting, Clippy on all targets, the four feature configurations and doctests,
-the site's Rust examples, documentation with warnings denied, both examples, package
-verification, and both packaged examples. Package output uses `CARGO_TARGET_DIR` when set,
+script then runs formatting, Clippy on all targets of both workspace members (the library and
+the site's `warded-docs` crate), the four feature configurations and doctests, the site's Rust
+examples, documentation with warnings denied, both examples, package verification, and both
+packaged examples. Package output uses `CARGO_TARGET_DIR` when set,
 otherwise `target`; the package step chooses that output explicitly to avoid stale-path fallback.
 
 A separate required Linux job runs `cargo deny --locked check` with cargo-deny 0.20.2, verified
@@ -96,10 +97,13 @@ benchmarks, clean-consumer rehearsal and the server example.
 `docs/` is both the VitePress site and the unpublished `warded-docs` workspace member. Its
 [`pages.rs`](../docs/pages.rs) includes each page as the documentation of an item that exists
 only under `cfg(doctest)`, so `cargo test --package warded-docs --locked` compiles and runs every
-`rust` code block on the site against the source in this checkout, on Windows and Linux. Blocks
-marked `rust no_run` compile only; VitePress shows them as Rust. The crate's unit tests fail when
-a page is missing from `pages.rs`, when a code block names a language outside a short allowed
-list (rustdoc would silently skip a block marked `rs`), or when a fence is indented or unclosed.
+`rust` code block on the site against the source in this checkout, on Windows and Linux. The
+crate's unit tests fail when a page is missing from `pages.rs`, when a code block names a
+language outside a short allowed list (rustdoc would silently skip a block marked `rs`), or when
+a fence is indented or unclosed. The check reads the first word after the fence, so a rustdoc
+attribute must follow the language after a space: `rust no_run` compiles a block without running
+it, and VitePress still shows it as Rust. Rustdoc's usual comma form, `rust,no_run`, fails the
+check. No page uses an attribute yet; examples are expected to run.
 The crate package excludes `docs/`, so these checks never run from the package; the README's
 examples run from the package's own doctests.
 
