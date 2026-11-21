@@ -2,20 +2,22 @@
 
 Warded evaluates synchronous conditions on a body-free view, selects the first complete candidate,
 then executes exactly one service. This makes route applicability independent of response status
-and body decoding. Custom predicates should be bounded and free of observable effects; the type
-system excludes a body argument but cannot make arbitrary captured state pure.
+and body decoding. The type system excludes a body argument but cannot make arbitrary captured
+state pure, so the [rules for custom matchers](../docs/custom-matchers.md#rules-for-custom-matchers)
+are documented obligations rather than enforced ones.
 
-This note records why the design is as it is. The consumer documentation states the resulting
-rules with examples: [how selection works](../docs/selection.md),
+This note records why the design is as it is: the alternatives, the evidence and the dependency
+choices. The consumer documentation owns the resulting rules and their examples, and each section
+links the pages that state them: [how selection works](../docs/selection.md),
 [paths and captures](../docs/paths.md), [content negotiation](../docs/negotiation.md),
-[Tower and Axum](../docs/tower.md) and [scope and limits](../docs/limits.md). Change both when a
-rule changes.
+[Tower and Axum](../docs/tower.md) and [scope and limits](../docs/limits.md). When a rule changes,
+change it there and keep only its rationale here.
 
-The matching trait and local `Selector` have no thread-safety requirement; `SyncSelector` retains
-`Send + Sync` bounds for a shared table without requiring Tower. The optional `Router` adapter
-uses cloneable `Send + Sync` Tower services and matchers. A selector returns a borrowed target and
-owned selection metadata. Tower dispatch stores the selected `Selection` and `Captures` in request
-extensions and preserves the request URI and body.
+`Selector`, `SyncSelector` and `Router` share one selection function and differ in their bounds
+([the three types](../docs/selection.md#selector-syncselector-and-router)). Generic borrowed
+targets keep local selection free of Tower, body and thread-safety requirements, so local-only
+predicates work without the optional adapter; the [assessment](./beta-assessment.md) records that
+API decision.
 
 ## Existing work and dependency choices
 
@@ -66,29 +68,36 @@ and the upstream packages for their notices. Warded's original code uses MIT OR 
 
 ## Selection and captures
 
-All dimensions are peers. Undeclared conditions impose no restriction. Declaration order applies
-even when paths overlap or an earlier route has no path condition. The router scans candidates
-linearly and does not claim a performance advantage.
+Declaration order is the only priority, across every dimension and overlapping paths
+([the rule](../docs/selection.md#the-first-complete-match-wins)). The router scans candidates
+linearly and does not claim a performance advantage; the [selection-cost
+decision](./beta-assessment.md#selection-cost-decision) records the measurements and the condition
+for revisiting an index.
 
-Each matcher returns its own tentative captures. Conjunction merges only successful results;
-alternatives commit the first success; negation discards operand captures. A collision is an
-explicit evaluation error. Captures are raw owned strings and do not automatically populate Axum's
-private path extractor state. Static path syntax errors fail construction; name collisions between
-composed matchers are diagnosed during evaluation.
+Errors stop selection instead of becoming misses, and a selected service's response, error or
+pending state never retries another candidate ([misses and
+errors](../docs/selection.md#misses-and-errors), [misses and
+fallbacks](../docs/tower.md#misses-and-fallbacks)). Treating an error as a miss could select a
+route the request should not reach, and a retry would make applicability depend on a response.
 
-`Matcher::filter` refines a successful match through a read-only predicate on its tentative
-captures. Rejection is an ordinary miss, accepted captures stay raw, and errors from the wrapped
-matcher propagate without invoking the predicate. It can validate several captures after a
-composition without introducing typed capture storage or another path grammar. Conditional
-`Clone`/thread-safety bounds follow the wrapped matcher and callback; local-only and non-cloneable
-callbacks remain usable with `Selector`. The predicate/newtype/regex comparison and measurements
-are retained in the independent `experiment-path-constraints` branch and issue #9.
+Captures are tentative per matcher until their route is selected ([captures in
+combinations](../docs/selection.md#captures-in-combinations)). Custom matchers can produce capture
+names that are known only during evaluation, so a collision between composed matchers is diagnosed
+then, as `DuplicateCapture`; static path syntax errors still fail construction. Captures stay raw
+owned strings. Axum's path extractor state is private, so Warded cannot fill it.
+
+`Matcher::filter` ([refine captures](../docs/paths.md#refine-captures-with-filter)) validates
+several captures after a composition without introducing typed capture storage or another path
+grammar. Its `Clone` and thread-safety bounds follow the wrapped matcher and callback, so local-only
+and non-cloneable callbacks remain usable with `Selector`. The predicate/newtype/regex comparison
+and measurements are retained in the independent `experiment-path-constraints` branch and issue #9.
 
 Construction rejects duplicate decoded names, unmatched closing braces and more than 25 ordinary
-parameters before calling matchit. Version 0.9.2 panics while normalizing the 26th ordinary
-parameter. A terminal catch-all does not consume ordinary-parameter capacity. The closing-brace
-check first contained the escape-marker defect below; after its repair it is defence in depth.
-Definition errors from matchit are prefixed with the declared pattern.
+parameters before calling matchit ([pattern rules](../docs/paths.md#pattern-rules-and-limits)).
+Version 0.9.2 panics while normalizing the 26th ordinary parameter, which sets that limit; a
+terminal catch-all does not consume ordinary-parameter capacity. The closing-brace check first
+contained the escape-marker defect below; after its repair it is defence in depth. Definition
+errors from matchit are prefixed with the declared pattern.
 
 matchit 0.9.2 can lose the escape marker for a literal opener immediately after a parameter
 when normalization changes the parameter's byte length. Warded validates the affected names with
@@ -98,85 +107,85 @@ captures. matchit still validates the complete pattern. For example, `/{id}{{x}}
 See [issue #13](https://github.com/viell-dev/slop-warded-router/issues/13). Remove or revise the
 capacity guard only after a tested upstream change.
 
-Custom matcher and missing-context errors stop selection. A selected service's error, 404, or
-pending state never retries another candidate. A configured consumer fallback supersedes ordinary
-404 and error-on-miss; explicit no-match errors retain the unread request.
-
 ## Readiness and cancellation
 
-The Tower adapter accepts a request and waits only for its selected destination, polling readiness
-on the same cloned instance it subsequently calls. This avoids coupling unrelated destinations'
-readiness. The router's ready result is not admission control: apply an outer Tower concurrency
-limit. Cancellation drops the selected future through normal Tower behavior; no retry is attempted.
+The Tower adapter polls readiness only on a clone of the selected destination and calls that same
+clone ([readiness and admission](../docs/tower.md#readiness-and-admission)), so an unrelated
+destination that is not ready never delays a request. Tower's `Steer` takes the other approach:
+its `poll_ready` waits for every service, because it cannot know which one the next request
+needs. The consequence of Warded's choice is that its readiness is not admission control, so hosts
+add an outer limit. Cancellation drops the selected future through normal Tower behavior; no retry
+is attempted.
 
-The adapter requires a common response body and service error type. `Router` needs a `Default` body
-for its implicit 404, whose body is that default value. `RequestRouter` removes that bound and uses
-`RequestDispatchError` to preserve unmatched requests. Ordinary `DispatchError<E>` contains no body.
-Convert heterogeneous service responses or errors before mounting them. Router clones share an
-immutable table; changing a shared clone copies the table. Dispatch clones only its destination.
-There are no queues, retry middleware, timeout policy, or automatic body buffering.
+A Tower service has one response and error type, so all destinations share them
+([routes and services](../docs/tower.md#routes-and-services)). `RequestRouter` exists for response
+bodies without the `Default` that the implicit 404 needs, and for callers that take back an
+unmatched request with its body unread. `DispatchError<E>` holds no body, so it converts into
+Tower's `BoxError`.
 
 ## Negotiation and convenience helpers
 
-`accepts_media_type`, `accepts_language`, and `accepts_encoding` each evaluate one offered value.
-`Offers` compares one shared complete set and allows a route to require the preferred result.
-Offers must have the same non-negotiation applicability; otherwise an unavailable handler could
-win the offer comparison. Routing itself remains ordered.
+Negotiation is a route condition, so it never reorders routes: declaration order stays the only
+priority, and a shared `Offers` set only decides which of its routes can match ([two kinds of
+conditions](../docs/negotiation.md#two-kinds-of-conditions)). The cost is that routes sharing a
+set need the same other conditions, or the set can prefer an unavailable alternative ([shared
+offers](../docs/negotiation.md#shared-offers-or-independent-conditions)).
 
-Language matching chooses lookup or basic filtering explicitly. Missing fields use field-specific
-protocol semantics. An absent field accepts every offer, so a set chooses its first. A present
-field that parses as a list without members (an empty value, or only empty elements or empty
-lines) accepts no media type or language, so even a strict predicate misses; such an
-Accept-Encoding accepts only identity. Repeated values are combined as ordered lists. An empty line
-adds no member, but once lines are combined it is an empty list element, and parsing refuses more
-than 16 empty elements, a fixed inherited limit: such a field is malformed, not memberless.
-Invalid syntax ordinarily misses. Use `invalid_is_error` to surface the parser diagnostic.
-Warded's `Limits` configures combined field bytes, list members and parameters per member.
-The dependency's per-token length setting applies to other grammar paths.
-One immutable head caches complete choices for shared offer sets and limits, including parser
-failures before error/miss mapping. The cache retains each set to prevent address reuse and is
-thread-safe; cloning a head starts a new cache. Independent sets still parse independently. There is
-no route index, and raw path interpretation and ordered error propagation remain unchanged.
+Field handling is in [absent, empty and malformed
+headers](../docs/negotiation.md#absent-empty-and-malformed-headers) and [limits and
+cost](../docs/negotiation.md#limits-and-cost). Details the site leaves out:
 
-Media specificity compares wildcard/type specificity and then the number of applicable parameters;
-`q` is a weight wherever it appears. Basic filtering weights a tag by its longest matching range,
-and `*` covers only tags no other range matches. An encoding offer takes the weight of its listed
-coding, otherwise of `*`. RFC 9110 §12.5.3 lets `identity;q=0`, or `*;q=0` without an `identity`
-entry, exclude an unlisted identity; Warded's policy also gives an unlisted identity a positive
-`*` weight. Media, encoding, and basic filtering ties use offer order. Lookup processes positive
-client ranges by descending weight/client order, completing truncation before the next range, and
-uses a wildcard only as a final default. As in RFC 4647 section 3.4, a one-character subtag is
-removed together with its closest trailing subtag, so `x-a-b-cc` never truncates to `x-a`.
-Zero-quality ranges reject an equal or less specific lookup match (an exact range, then a truncated
-one, then `*`), retaining explicit exclusions without letting a broad wildcard erase a more specific
-positive preference. Registry validation of server language tags is outside the constructor's
-well-formed-syntax contract.
+- An empty line adds no member, but once repeated lines are combined it is an empty list element,
+  and parse-net refuses more than 16 empty elements, a fixed inherited limit: such a field is
+  malformed, not memberless.
+- `Limits` configures combined field bytes, list members and parameters per member. The
+  dependency's per-token length setting applies to other grammar paths, so Warded does not expose
+  it.
+- One immutable head caches complete choices for shared offer sets and limits, including parser
+  failures before error/miss mapping. The cache retains each set to prevent address reuse and is
+  thread-safe; cloning a head starts a new cache. Independent sets still parse independently.
+  There is no route index.
 
-Method helpers match only their named method. `secured` and `unsecure` inspect trusted contextual
-data, not URI scheme or forwarding headers. Unknown context errors unless explicitly made a miss.
-`secured_post` and `secured_get_and_head` are ordinary optional compositions; they add no special
-dispatch behavior. HTTPS is not authentication, and a GET-only condition does not match HEAD.
+The selection rules are in [weights, wildcards and
+exclusions](../docs/negotiation.md#weights-wildcards-and-exclusions), [JSON or
+HTML](../docs/negotiation.md#json-or-html-from-one-path) and [precompressed
+files](../docs/negotiation.md#serve-precompressed-files). Their rationale:
+
+- Media specificity counts parameters on either side of `q`, which parse-net 0.9.3 lost, and keeps
+  counting past the 63 at which parse-net's own specificity stops.
+- RFC 9110 §12.5.3 lets `identity;q=0`, or `*;q=0` without an `identity` entry, exclude an
+  unlisted identity; Warded's policy also gives an unlisted identity a positive `*` weight.
+- Lookup truncation follows RFC 4647 section 3.4, including consecutive one-character subtags
+  ([issue #21](https://github.com/viell-dev/slop-warded-router/issues/21),
+  `tests/lookup_truncation.rs`).
+- Zero-quality ranges reject an equal or less specific lookup match (an exact range, then a
+  truncated one, then `*`). This retains explicit exclusions without letting a broad wildcard
+  erase a more specific positive preference.
+- Registry validation of server language tags is outside the constructor's well-formed-syntax
+  contract.
+
+Convenience helpers such as `secured_post` and `secured_get_and_head` are ordinary compositions;
+they add no dispatch behavior ([methods](../docs/conditions.md#methods)). Security conditions read
+only trusted context, because a client can send the URI scheme and forwarding headers itself, and
+unknown context is an error by default so a missing layer cannot silently serve or hide routes
+([transport security](../docs/transport-security.md#unknown-context)).
 
 ### Negotiation defaults and compatibility
 
-Language constructors require a mode. Choose lookup when offering a fallback such as `fr` for a
-request for `fr-CA`. Choose basic filtering when a broader range such as `fr` should accept an
-offered `fr-CA`. Making the caller choose keeps both directions explicit at the route definition.
+Language constructors require a mode ([lookup or basic
+filtering](../docs/negotiation.md#lookup-or-basic-filtering)). Neither mode is right for every
+offer set, and making the caller choose keeps the direction explicit at the route definition.
 
-An invalid or over-limit field ordinarily misses the negotiation predicate, so a later explicit
-route can supply the application's fallback. An absent field follows that field's preference
-rules. Treating malformed input as absent could give the first offer a preference the client
-never expressed. Use `invalid_is_error` when the host needs a diagnostic and wants selection to
-stop on malformed input.
+An invalid or over-limit field ordinarily misses, so a later explicit route can supply the
+application's fallback. Treating malformed input as absent was rejected because it could give the
+first offer a preference the client never expressed; an error by default would stop later routes
+from running. `invalid_is_error` serves hosts that want a diagnostic and want selection to stop.
 
-The defaults allow 64 KiB of combined field bytes, including separators between repeated lines,
-and 1024 nonempty list members. The inherited caps are 16 empty list elements and 64 parameters
-per member, including `q`. These bounds limit accepted input size per operation. Work also
-depends on how many ranges, truncations and offers are compared and how many predicates the
-request reaches. Each zero-quality lookup exclusion check compares an offer against a single
-range in time linear in the offer length. A deployment can set smaller `Limits` values to fit its
-workload and use cheap applicable conditions before parsing. Shared complete offer sets can
-reuse the computed choice on a head.
+The [default limits](../docs/negotiation.md#limits-and-cost) bound accepted input size per
+operation. Work also depends on how many ranges, truncations and offers are compared and how many
+predicates the request reaches. Each zero-quality lookup exclusion check compares an offer against
+a single range in time linear in the offer length. The [selection-cost
+decision](./beta-assessment.md#selection-cost-decision) records the measurements.
 
 After the 0.1 compatibility freeze, tighter defaults could turn a previously eligible route into
 a fallback or a strict matching error. Changing malformed-as-miss to an error could stop later
@@ -188,16 +197,15 @@ for stricter application policy and assess an intentional breaking default chang
 
 The adapter mounts ordinary Tower services and the regression suite mounts Axum with its own state,
 path extraction, and extensions. This does not establish compatibility with every framework,
-server transport, or UI runtime. The router implements no TLS, protocol negotiation, authentication,
-automatic 405/OPTIONS/CORS response, redirect, compression, or body validation. HEAD response-body
-rules remain the HTTP stack's responsibility.
+server transport, or UI runtime. [What your application
+provides](../docs/limits.md#what-your-application-provides) lists the concerns left to the server
+and destinations.
 
-Header-based variants and fallbacks need appropriate `Vary` or cache-control middleware around the
-router. Negotiation helpers do not generate response metadata or encode a selected representation.
-Trusted transport/proxy integration must populate `TransportSecurity` correctly. Host conditions
-use custom URI/header predicates; HTTP/1.1 `Host` and HTTP/2 `:authority` are distinct protocol inputs,
-and `Host` cannot replace an available authority. No dedicated host helper is part of 0.1.
-Real localhost HTTP/1.1 is exercised by the hosting tests and representative Leptos fixture.
-HTTP/2/3, TLS negotiation and proxy trust remain outside this evidence. See the
+Host conditions use [custom matchers](../docs/custom-matchers.md#a-host-condition-with-match_fn).
+HTTP/1.1 `Host` and HTTP/2 `:authority` are distinct protocol inputs, and `Host` cannot replace an
+available authority, so no dedicated host helper is part of 0.1. Real localhost HTTP/1.1 is
+exercised by the hosting tests and representative Leptos fixture. HTTP/2/3, TLS negotiation and
+proxy trust remain outside this evidence ([tested
+environments](../docs/limits.md#tested-environments)). See the
 [freeze assessment](./beta-assessment.md) for API and cost decisions and the
 [release procedure](./release.md) for the agreed compatibility/stage policy.
