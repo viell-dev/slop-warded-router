@@ -34,8 +34,9 @@ tested, and what selection costs.
 
 ## Tested environments
 
-- **Library:** the test suite, doctests, examples and documentation build run in CI on Windows
-  and Linux with Rust 1.99.1, in all four feature combinations.
+- **Library:** the test suite runs in CI on Windows and Linux with Rust 1.99.1, in all four
+  feature combinations, together with the doctests, the examples on this site, the repository
+  examples and the packaged crate.
 - **Hosting:** real HTTP/1.1 over localhost, through the [server example] and a representative
   Leptos server-rendered application that uses Warded as its outer router, tested with Chromium,
   Firefox and WebKit on Linux.
