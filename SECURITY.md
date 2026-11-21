@@ -32,5 +32,5 @@ fixture and is not distributed.
 
 The required `ci` check runs `cargo-deny --locked check` against the RustSec advisory database
 and enforces the [dependency policy](./deny.toml). Fixes also go through the required
-`leptos-fixture` check. See the [release procedure](./docs/release.md#before-rc) for when it
+`leptos-fixture` check. See the [release procedure](./internals/release.md#before-rc) for when it
 runs the full fixture.

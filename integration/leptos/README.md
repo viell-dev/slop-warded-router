@@ -98,7 +98,7 @@ pull request a short job decides whether library source, the root manifest, Carg
 the toolchain file, the fixture (except its Markdown), the workflow or its gate scripts changed.
 The required `leptos-fixture` check needs a passing fixture run for an affected revision or a
 skip with an explicit unaffected result. See the
-[release procedure](../../docs/release.md#before-rc) for the candidate gates.
+[release procedure](../../internals/release.md#before-rc) for the candidate gates.
 Hosted jobs build from the digest-pinned base and use fresh container storage. They stream the
 source archive into the container and copy reports out as the host user before removing the
 container. This keeps source and output off shared volumes and works with rootless Docker.
