@@ -32,7 +32,7 @@ verification and honest compatibility claims are essential.
 - Unexpected failures need triage against the baseline. Do not weaken checks or hide failures to
   obtain green results. Track actionable defects and deferred limits in issues.
 - Follow CONTRIBUTING's recurring upstream-test review during early releases. Record relevant
-  cases and semantic differences in `docs/upstream-tests.md`; do not mirror entire foreign suites.
+  cases and semantic differences in `internals/upstream-tests.md`; do not mirror entire foreign suites.
 - Keep human-facing Markdown prose near 100 columns. Preserve unrelated content and formatting.
 - Use `.github/labels.json` as the shared label catalog. Every issue and pull request needs one
   `Type:` label and at most one `Status:` label. `Needs:` identifies the person who must act.
@@ -41,7 +41,7 @@ verification and honest compatibility claims are essential.
 
 Use SemVer prerelease stages. Alpha is for changes to scope and core behavior. Beta begins when the
 agreed feature scope is implemented and the beta gates pass. RC identifies a specific source
-candidate intended to become the stable release. See the [release procedure](./docs/release.md).
+candidate intended to become the stable release. See the [release procedure](./internals/release.md).
 Before the first RC, record the owner's hands-on use of the published candidate in
 [#26](https://github.com/viell-dev/slop-warded-router/issues/26) and resolve its blockers.
 Independent agent usability reviews cover later candidates and substantial workflow changes.

@@ -7,12 +7,12 @@ feature. Describe behavior with synthetic requests and expected outcomes.
 Use a branch and pull request against `main`. Both `ci` and `leptos-fixture` are required.
 The former includes Windows/Linux library and package checks and the Linux dependency policy
 check. The latter runs the full fixture when its inputs change and verifies that decision on
-every pull request. The [release procedure](./docs/release.md#before-rc) lists affected paths,
+every pull request. The [release procedure](./internals/release.md#before-rc) lists affected paths,
 manual dispatch and tag triggers. After relevant tests and required checks pass, review the
 complete change and record the platforms, Rust version, commands and evidence limits.
 
 Releases are distributed through crates.io, with versioned API documentation on docs.rs. Record
-unreleased user-facing changes in the changelog. The [release procedure](./docs/release.md)
+unreleased user-facing changes in the changelog. The [release procedure](./internals/release.md)
 covers registry verification and publishing.
 
 Report suspected vulnerabilities using the [private GitHub route](./SECURITY.md). Security fixes
@@ -23,7 +23,7 @@ inputs and missing scenarios. For substantial matching/dispatch changes and alph
 preparation, inspect the relevant upstream areas and record the pinned revisions, applicable
 cases, and their dispositions. Reuse existing evidence for unchanged areas; a full rescan of every
 upstream suite is unnecessary. Preserve Warded's documented semantics rather than importing another
-router's defaults. See the [comparison record](./docs/upstream-tests.md). After the first stable
+router's defaults. See the [comparison record](./internals/upstream-tests.md). After the first stable
 release, retire this routine comparison gate and use targeted upstream research when useful.
 
 Agent-authored issues, pull requests, and reviews must clearly disclose their authorship, the

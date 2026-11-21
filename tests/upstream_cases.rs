@@ -1,4 +1,4 @@
-//! Independently written public-boundary regressions; see docs/upstream-tests.md for provenance.
+//! Independently written public-boundary regressions; see internals/upstream-tests.md for provenance.
 
 use http::{Method, Request};
 use std::{cell::RefCell, rc::Rc};
