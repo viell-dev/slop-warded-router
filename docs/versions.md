@@ -1,3 +1,7 @@
+---
+description: "How Warded numbers its releases, what alpha, beta and release candidate mean, and how to pin a version."
+---
+
 # Versions
 
 Warded uses [Semantic Versioning](https://semver.org/) with prerelease stages. The version this

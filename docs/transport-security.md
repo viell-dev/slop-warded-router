@@ -1,3 +1,7 @@
+---
+description: "Route on HTTPS using the transport security your server or trusted proxy layer supplies, and decide what unknown security means."
+---
+
 # Transport security
 
 `secured()` matches requests that arrived over HTTPS, and `unsecure()` matches requests known to

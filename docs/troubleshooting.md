@@ -1,3 +1,7 @@
+---
+description: "Fix route definition errors and selection errors, and find out why a request misses the route you expected."
+---
+
 # Troubleshooting
 
 This page covers the two kinds of problems you are likely to meet: a route that cannot be defined,

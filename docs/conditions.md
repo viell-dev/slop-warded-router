@@ -1,3 +1,7 @@
+---
+description: "Route on the request method, raw header fields, raw query parameters and the HTTP version, and combine these conditions."
+---
+
 # Methods, headers and query parameters
 
 Besides the path, a route can test the request method, raw header fields, raw query parameters and

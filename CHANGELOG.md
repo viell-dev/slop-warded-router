@@ -25,6 +25,11 @@ appear here before the next release.
   `cmd.exe` accepts as well as PowerShell and POSIX shells. Getting started also gives the
   dependencies of its Tower example their own `cargo add` commands.
   [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
+- Link Troubleshooting and Scope and limits from the site's top navigation and home page, give
+  each site page its own description for search results, and reword dense API reference
+  summaries, such as those of `Offers`, `Negotiated` and `Router`, in plain words. The crate's
+  `homepage` is the documentation site. Library behavior is unchanged.
+  [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
 
 ## 0.1.0-beta.4
 

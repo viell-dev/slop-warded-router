@@ -1,3 +1,7 @@
+---
+description: "Serve languages, media types and encodings from Accept fields, with a default, a visitor's own choice and the right Vary headers."
+---
+
 # Content negotiation
 
 Clients say which representations they prefer in three request fields:

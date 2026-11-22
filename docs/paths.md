@@ -1,3 +1,7 @@
+---
+description: "Match exact paths and patterns with named captures, refine captured values with filter, and translate other routers' path syntax."
+---
+
 # Paths and captures
 
 Warded has two path conditions. `exact_path` compares the whole path with one string. `path`

@@ -1,3 +1,7 @@
+---
+description: "How Warded chooses a route: declaration order, complete conditions, misses, errors, combinators and captures."
+---
+
 # How selection works
 
 A route table is a list. For each request, Warded evaluates the routes from first to last and

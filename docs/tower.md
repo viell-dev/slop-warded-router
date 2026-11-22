@@ -1,3 +1,7 @@
+---
+description: "Dispatch routes to Axum handlers, Axum routers and other Tower services, with fallbacks, error mapping and readiness."
+---
+
 # Tower and Axum
 
 `Router`, from the `tower` feature, routes requests to [Tower](https://docs.rs/tower) services. It

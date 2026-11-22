@@ -1,5 +1,6 @@
 ---
 layout: home
+description: "A Rust router that selects one destination for each HTTP request from ordered conditions on the whole request head."
 hero:
   name: Warded
   text: Route on the whole request head

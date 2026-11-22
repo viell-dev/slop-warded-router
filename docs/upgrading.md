@@ -1,3 +1,7 @@
+---
+description: "The code changes that each Warded release needs when you upgrade, newest first."
+---
+
 # Upgrading
 
 This page lists the releases whose upgrade needs changes to your code, newest first. Each section
