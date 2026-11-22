@@ -42,6 +42,9 @@ after failed alternatives and negation, collision errors, raw/repeated/invalid i
 matching dimensions, equivalent shortcut compositions, semantic negotiation, unread bodies and
 trailers, committed service execution, no-match request preservation, readiness isolation, and an
 Axum mounting boundary. A compile-fail doctest checks that matchers have no body accessor.
+`matching.rs` also refuses capture names with `:` or whitespace, such as `{id:[0-9]+}` and
+`{ id }`, and keeps Unicode, `-`, `_` and escaped-brace controls and literal `:slug` paths
+working. matchit alone accepts most of the refused patterns, so removing the check fails it.
 
 The [comparison harness](https://github.com/viell-dev/slop-warded-router/tree/main/research/comparison)
 is an optional engineering probe,
