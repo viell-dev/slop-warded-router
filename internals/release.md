@@ -43,9 +43,11 @@ routing semantics, feature names and Rust minimum 1.99.1. Intentional breaking c
   polish. A material change to the first-release goal needs an owner decision.
 - **RC** identifies a concrete candidate intended to become stable. The owner must explicitly
   approve the first RC after review and the hands-on session in
-  [#26](https://github.com/viell-dev/slop-warded-router/issues/26). Publish `0.1.0-beta.3` as the
-  installable candidate for that session. Record the owner's report, resolve blockers and return
-  to [#25](https://github.com/viell-dev/slop-warded-router/issues/25) for RC approval.
+  [#26](https://github.com/viell-dev/slop-warded-router/issues/26), which used `0.1.0-beta.3`.
+  The owner's report asked for the documentation site in
+  [#29](https://github.com/viell-dev/slop-warded-router/issues/29) before RC. Release it, check it
+  with an independent agent usability review, resolve the findings and return to
+  [#25](https://github.com/viell-dev/slop-warded-router/issues/25) for RC approval.
 - **Stable** requires separate explicit owner approval after review. The hands-on session is the
   human use the stable gate requires while RC and stable stay representative of the tested build.
   After it, independent agent usability reviews cover later candidates and substantial workflow
@@ -192,17 +194,18 @@ The workflow uploads only when the version is missing, then confirms the checksu
   User-Agent for registry requests.
 - Check the same version on docs.rs, including a successful build and the Tower and negotiation
   APIs. Check the source tag resolves to the recorded commit.
-- Run the registry consumer check from a fresh Cargo environment. For beta.3 use
-  `bash scripts/check-clean-consumer.sh --registry 0.1.0-beta.3`. It tests fresh installation,
-  an update from source beta.2, all four feature combinations, rustdoc, removal and recovery.
-  Pass the previous published version for later registry-to-registry updates.
+- Run the registry consumer check from a fresh Cargo environment with the new and previous
+  published versions, for example
+  `bash scripts/check-clean-consumer.sh --registry 0.1.0-beta.4 0.1.0-beta.3`. It tests fresh
+  installation, the update from the previous version, all four feature combinations, rustdoc,
+  removal and recovery. Without a previous version it updates from source beta.2.
 - Check the [deployed site](#documentation-site): its `version.json` names the version and the
   release commit, the navigation bar shows the version, and the getting-started page installs it.
   Keep the repository's About website pointing at the site, which leads to the current release's
   guides and links its docs.rs reference.
-- Record evidence in the release tracker. Mark the beta.3 hands-on request ready with verified
-  download, documentation and tag links when these checks pass. Keep the request open until the
-  owner's report and resulting work are handled.
+- Record evidence in the release tracker. When these checks pass, give any request issue that
+  waits on the release, such as a hands-on or RC approval request, the verified download,
+  documentation and tag links. Keep it open until its answer and resulting work are handled.
 
 ## Documentation site
 

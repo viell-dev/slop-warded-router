@@ -69,5 +69,5 @@ and environment. To keep selection cheap:
 - Lower the [negotiation limits](./negotiation.md#limits-and-cost) where clients send short fields.
 - Limit concurrent requests in the server, since the router admits everything.
 
-[server example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/examples/server.rs
-[measurement record]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/internals/beta-assessment.md#selection-cost-decision
+[server example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.4/examples/server.rs
+[measurement record]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.4/internals/beta-assessment.md#selection-cost-decision

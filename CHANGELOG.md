@@ -4,6 +4,13 @@
 
 Changes on `main` appear here before the next release.
 
+## 0.1.0-beta.4
+
+Adds the documentation site that the
+[hands-on report in #26](https://github.com/viell-dev/slop-warded-router/issues/26) asked for before
+RC, with one breaking rename and one change to encoding selection. The
+[upgrading guide](https://viell-dev.github.io/slop-warded-router/upgrading.html) covers both.
+
 - **Breaking:** rename the raw URI query-string helpers so a composition cannot mix them up with
   the QUERY method. Matching is unchanged: split on `&` and the first `=`, with no decoding. No
   deprecated aliases remain. [#30](https://github.com/viell-dev/slop-warded-router/issues/30)
