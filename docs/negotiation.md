@@ -83,6 +83,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         (Some("es"), "English, as the default"),
         (Some(""), "English, as the default"),
         (Some("fr;q=2"), "English, as the default"),
+        (Some("fr, garbage!!"), "English, as the default"),
+        (Some("en;q=0"), "English, as the default"),
     ] {
         assert_eq!(
             welcome(&routes, accept_language)?,
@@ -108,6 +110,8 @@ What happens in each case:
 | `es`                        | English, as the default | Nothing offered is acceptable, so every language route misses |
 | empty value                 | English, as the default | The client listed no acceptable language                 |
 | `fr;q=2`                    | English, as the default | A weight above 1 is malformed, so the language routes miss |
+| `fr, garbage!!`             | English, as the default | One malformed member makes the whole field malformed |
+| `en;q=0`                    | English, as the default | English is excluded, and nothing else is listed |
 
 Three parts of the table do the work:
 
@@ -211,6 +215,92 @@ Warded makes you name the mode because neither is right for every offer set. Loo
 filtering are defined in [RFC 4647](https://www.rfc-editor.org/rfc/rfc4647). Offers must be
 well-formed language tags (BCP 47); they are checked when you build the set.
 
+### A regional offer beside general ones
+
+Sometimes one language exists only in a regional version, such as Brazilian Portuguese, `pt-BR`,
+beside general `en` and `fr` pages. Neither mode serves that set on its own. Lookup never
+lengthens a range, so a request for `pt` or `pt-PT` does not reach `pt-BR`. Basic filtering lets
+`pt` reach `pt-BR`, but then `fr-CA` and `en-GB` no longer reach `fr` and `en`.
+
+Use lookup, and offer the general tag `pt` as well, as an alias: its route serves the same
+Brazilian page as the `pt-BR` route. Lookup shortens `pt-PT` to `pt`, so every Portuguese request
+reaches that page:
+
+```rust
+use http::Request;
+use std::error::Error;
+use warded::{
+    Head, Matcher, Selector,
+    matchers::{exact_path, get},
+    negotiation::{LanguageMatching, Offers},
+};
+
+/// The page each offer serves. `pt`, where it is offered, serves the Brazilian page.
+fn page_for(offer: &str) -> &'static str {
+    match offer {
+        "en" => "English",
+        "fr" => "French",
+        _ => "Brazilian Portuguese",
+    }
+}
+
+/// One route per offer, then English as the default.
+fn routes(
+    offers: &[&str],
+    mode: LanguageMatching,
+) -> Result<Selector<&'static str>, Box<dyn Error>> {
+    let languages = Offers::languages(offers.iter().copied(), mode)?;
+    let page = || get().and(exact_path("/welcome"));
+    let mut routes = Selector::new();
+    for offer in offers {
+        routes = routes.route(page().and(languages.selected(offer)?), page_for(offer));
+    }
+    Ok(routes.route(page(), "the default"))
+}
+
+/// The page selected for this Accept-Language field.
+fn welcome(
+    routes: &Selector<&'static str>,
+    accept_language: &str,
+) -> Result<&'static str, Box<dyn Error>> {
+    let request = Request::builder()
+        .uri("/welcome")
+        .header("accept-language", accept_language)
+        .body(())?;
+    let selected = routes.select(&Head::from_request(&request))?;
+    Ok(selected.map_or("no route", |selected| *selected.target))
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    use LanguageMatching::{BasicFilter, Lookup};
+
+    let tables = [
+        routes(&["en", "fr", "pt-BR"], Lookup)?,
+        routes(&["en", "fr", "pt-BR"], BasicFilter)?,
+        // Lookup with `pt` as an alias for the Brazilian page.
+        routes(&["en", "fr", "pt-BR", "pt"], Lookup)?,
+    ];
+    let (brazilian, default) = ("Brazilian Portuguese", "the default");
+    // The pages from lookup, basic filtering and lookup with the alias.
+    for (accept_language, pages) in [
+        ("pt-BR", [brazilian, brazilian, brazilian]),
+        ("pt", [default, brazilian, brazilian]),
+        ("pt-PT", [default, default, brazilian]),
+        ("fr-CA", ["French", default, "French"]),
+        ("en-GB", ["English", default, "English"]),
+    ] {
+        for (routes, page) in tables.iter().zip(pages) {
+            assert_eq!(welcome(routes, accept_language)?, page, "{accept_language}");
+        }
+    }
+    Ok(())
+}
+```
+
+Both Portuguese routes send `Content-Language: pt-BR`, because that is what they serve. The alias
+also sends a reader of European Portuguese, `pt-PT`, to the Brazilian page rather than the
+default; leave `pt` out if those readers should get the default instead.
+
 ## Weights, wildcards and exclusions
 
 Both modes respect weights, but they break ties and handle `*` differently:
@@ -303,10 +393,11 @@ A missing field, an empty one and an unreadable one mean different things:
 - **Empty** means a list with no members. For `Accept` and `Accept-Language` no offer is
   acceptable, and the route misses even with `invalid_is_error`, because the field is valid.
 - **Malformed** input, such as `fr;q=2` or `en_US`, is a miss by default, so a later route, like
-  the default route above, can serve the request. Call `invalid_is_error()` on a condition to make
-  it an error instead: selection stops with `MatchError::InvalidHeader`, which you can map to a 400
-  Bad Request response. Treating malformed input as absent would invent a preference the client
-  never stated, so Warded does neither.
+  the default route above, can serve the request. One malformed member makes the whole field
+  malformed: `fr, garbage!!` is not read as a request for French. Call `invalid_is_error()` on a
+  condition to make it an error instead: selection stops with `MatchError::InvalidHeader`, which
+  you can map to a 400 Bad Request response. Treating malformed input as absent would invent a
+  preference the client never stated, so Warded does neither.
 
 Repeated fields are combined into one list in order, so `Accept-Language: fr` followed by
 `Accept-Language: en;q=0.5` is read as `fr, en;q=0.5`.
@@ -422,6 +513,151 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 This layer covers every route for simplicity. To keep other paths cacheable without the header,
 wrap only the negotiated path's services. Set `Content-Language`, `Content-Type` or
 `Content-Encoding` in each destination, which knows what it produced.
+
+## Let the visitor choose a language
+
+`Accept-Language` is the browser's guess. Many sites also let visitors pick a language, with a
+link such as `?lang=fr` or a language switcher that remembers the choice in a cookie. Declaration
+order is the only priority, so declare the explicit choices first: the routes for the query
+parameter, then the routes for the cookie, then the negotiated routes, then the default. A choice
+the site does not offer matches no explicit route and falls through to negotiation.
+
+The routes also need not repeat for every page. One route per language with a path capture, here
+`{*page}`, serves every page under `/docs`, and the handler reads the page from the captures:
+
+```rust
+use http::{Request, header::COOKIE};
+use std::error::Error;
+use warded::{
+    Head, Matcher, Selector, match_fn,
+    matchers::{get, param_pair, path},
+    negotiation::{LanguageMatching, Offers},
+};
+
+/// The languages the documentation exists in. Without a stated preference, the first is chosen.
+const LANGUAGES: [&str; 3] = ["en", "fr", "de"];
+
+/// Match a request whose Cookie header sets `name` to `value`.
+fn cookie(name: &'static str, value: &'static str) -> impl Matcher + Clone {
+    match_fn(move |head| {
+        head.headers()
+            .get_all(COOKIE)
+            .iter()
+            .filter_map(|field| field.to_str().ok())
+            .flat_map(|field| field.split(';'))
+            .filter_map(|pair| pair.trim().split_once('='))
+            .any(|(key, raw)| key == name && raw == value)
+    })
+}
+
+fn routes() -> Result<Selector<&'static str>, Box<dyn Error>> {
+    let languages = Offers::languages(LANGUAGES, LanguageMatching::Lookup)?;
+    // Every page under /docs; the capture tells the handler which one.
+    let docs = get().and(path("/docs/{*page}")?);
+
+    let mut routes = Selector::new();
+    // 1. A language chosen in the link, such as /docs/start?lang=fr.
+    for language in LANGUAGES {
+        routes = routes.route(docs.clone().and(param_pair("lang", language)), language);
+    }
+    // 2. A language chosen earlier and kept in a cookie.
+    for language in LANGUAGES {
+        routes = routes.route(docs.clone().and(cookie("lang", language)), language);
+    }
+    // 3. The browser's preference.
+    for language in LANGUAGES {
+        routes = routes.route(docs.clone().and(languages.selected(language)?), language);
+    }
+    // 4. Nothing acceptable, or a malformed field: the default.
+    Ok(routes.route(docs, LANGUAGES[0]))
+}
+
+/// The language and page selected for a request, as a handler would receive them.
+fn select(
+    routes: &Selector<&'static str>,
+    uri: &str,
+    cookie: Option<&str>,
+    accept_language: &str,
+) -> Result<(&'static str, String), Box<dyn Error>> {
+    let mut request = Request::builder()
+        .uri(uri)
+        .header("accept-language", accept_language);
+    if let Some(value) = cookie {
+        request = request.header(COOKIE, value);
+    }
+    let request = request.body(())?;
+    let selected = routes
+        .select(&Head::from_request(&request))?
+        .expect("the default route matches every page");
+    let page = selected.selection.captures.get("page").unwrap_or_default();
+    Ok((*selected.target, page.to_owned()))
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let routes = routes()?;
+    let browser = "fr-CA, fr;q=0.9, en;q=0.5";
+    for (uri, cookie, accept_language, language, page) in [
+        // The browser's preference, when the visitor chose nothing.
+        ("/docs/start", None, browser, "fr", "start"),
+        // A choice in the link wins over the browser.
+        ("/docs/start?lang=de", None, browser, "de", "start"),
+        // So does a choice in the cookie, but the link still comes first.
+        (
+            "/docs/guide/install",
+            Some("theme=dark; lang=en"),
+            browser,
+            "en",
+            "guide/install",
+        ),
+        (
+            "/docs/start?lang=de",
+            Some("lang=en"),
+            browser,
+            "de",
+            "start",
+        ),
+        // A language the site does not offer is ignored.
+        (
+            "/docs/start?lang=es",
+            Some("lang=es"),
+            browser,
+            "fr",
+            "start",
+        ),
+        // Nothing acceptable: the default.
+        ("/docs/start", None, "es", "en", "start"),
+    ] {
+        assert_eq!(
+            select(&routes, uri, cookie, accept_language)?,
+            (language, page.to_owned()),
+            "{uri} {cookie:?} {accept_language}"
+        );
+    }
+    Ok(())
+}
+```
+
+The cookie condition is a [custom matcher](./custom-matchers.md), because Warded has no cookie
+helper. Each language has its own routes and target, and that is how the destination knows the
+language: an offer set does not tell a shared handler which offer won. With Tower, give each
+language a handler that serves every page and reads `page` from the request's `Captures`.
+
+A response depends on every header that selection read to reach its route, so each of those
+headers belongs in its `Vary`. The query string is part of the URL, which caches already tell
+apart, so it needs none:
+
+| Route that answers | It depended on                         | `Vary`                     |
+| ------------------ | -------------------------------------- | -------------------------- |
+| Query parameter    | The URL                                | None for the language      |
+| Cookie             | The URL and the cookie                 | `Cookie`                   |
+| Negotiated         | The URL, the cookie and the field      | `Cookie, Accept-Language`  |
+| Default            | The URL, the cookie and the field      | `Cookie, Accept-Language`  |
+
+Listing a header that a response did not depend on is safe but caches less, so sending
+`Vary: Cookie, Accept-Language` on every response of these paths is the simple choice. A
+`Vary: Cookie` response is stored once per cookie value, which is often once per visitor. When
+shared caching matters, keep the choice in the URL instead, with the query parameter or a path
+prefix such as `/fr/docs/{*page}`.
 
 ## JSON or HTML from one path
 

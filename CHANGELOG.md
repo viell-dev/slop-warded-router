@@ -15,6 +15,12 @@ appear here before the next release.
   troubleshooting entries for other routers' path syntax and for Axum's `Path` extractor, which
   answers 500 `No paths parameters found for matched route` under a Warded route.
   [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
+- Extend the negotiation guide: offer `pt` beside a regional-only `pt-BR` so that lookup reaches
+  it, let visitors choose a language with a query parameter or cookie declared before the
+  negotiated routes, with the `Vary` values each route needs, and serve every page in each
+  language from one route with a path capture. It also says that one malformed member makes the
+  whole field malformed, so `fr, garbage!!` reaches the default.
+  [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
 
 ## 0.1.0-beta.4
 
