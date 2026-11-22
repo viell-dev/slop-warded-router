@@ -292,6 +292,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         ("pt-PT", [default, default, brazilian]),
         ("fr-CA", ["French", default, "French"]),
         ("en-GB", ["English", default, "English"]),
+        // The set does not know that `pt` serves the Brazilian page.
+        ("pt-BR;q=0, pt", [default, default, brazilian]),
     ] {
         for (routes, page) in tables.iter().zip(pages) {
             assert_eq!(welcome(routes, accept_language)?, page, "{accept_language}");
@@ -303,7 +305,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 Both Portuguese routes send `Content-Language: pt-BR`, because that is what they serve. The alias
 also sends a reader of European Portuguese, `pt-PT`, to the Brazilian page rather than the
-default; leave `pt` out if those readers should get the default instead.
+default; leave `pt` out if those readers should get the default instead. The offer set treats
+`pt` and `pt-BR` as different offers, so a client that refuses only `pt-BR`, as in
+`pt-BR;q=0, pt`, still reaches the Brazilian page through the `pt` route.
 
 ## Weights, wildcards and exclusions
 
