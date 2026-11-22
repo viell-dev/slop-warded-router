@@ -256,8 +256,10 @@ text, examples and the site's own tooling. Each page's "suggest a change" link o
 on `main`, because pull requests go there; when such a change corrects the released site, apply
 it to the correction branch too.
 
-1. If the release has no correction branch yet, create one at its tag:
-   `git push origin "refs/tags/$version:refs/heads/site-$version"`.
+1. If the release has no correction branch yet, create one at its tag's commit:
+   `git push origin "refs/tags/$version^{commit}:refs/heads/site-$version"`. The `^{commit}`
+   matters: a version tag is annotated, and GitHub rejects a branch that would name the tag
+   object instead of its commit.
 2. Open a pull request into `site-$version` from a task branch whose name does not start with
    `site-`. CI builds the site and runs its examples against the release's source.
 3. After it merges, dispatch **Pages** on `main` with `tag` set to the version and `corrections`
