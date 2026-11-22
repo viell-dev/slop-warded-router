@@ -474,6 +474,12 @@ fn capture_names_with_constraint_syntax_or_whitespace_are_definition_errors() {
         ("/a/{id}}:x}", "id}:x"),
         ("/{id:x}{{suffix}}", "id:x"),
         ("/{ok}/{id:x}{{suffix}}", "id:x"),
+        // A constraint's own closing brace pairs with the capture's as an escaped `}}`, so the
+        // capture stays open to the end of the pattern.
+        ("/a/{id:[0-9]{2}}", "id:[0-9]{2}"),
+        ("/a/{id:\\d{4}}", "id:\\d{4}"),
+        ("/a/{id:[0-9]{1,3}}", "id:[0-9]{1,3}"),
+        ("/files/{*rest:.{2}}", "rest:.{2}"),
     ] {
         let error = path(pattern).expect_err(pattern).to_string();
         assert!(
@@ -481,6 +487,11 @@ fn capture_names_with_constraint_syntax_or_whitespace_are_definition_errors() {
             "{pattern}: {error}"
         );
         assert!(error.contains("Matcher::filter"), "{pattern}: {error}");
+    }
+    // An unclosed parameter without constraint syntax keeps matchit's own error.
+    for pattern in ["/a/{id", "/a/{id}}"] {
+        let error = path(pattern).expect_err(pattern).to_string();
+        assert!(!error.contains("capture name"), "{pattern}: {error}");
     }
 }
 

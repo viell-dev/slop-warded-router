@@ -167,6 +167,17 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
     let mut chars = pattern.char_indices().peekable();
     let mut capture: Option<(usize, String)> = None;
     let mut repairs = Vec::new();
+    // Other routers' constraint syntax, such as `{id:[0-9]+}` or `{id:int}`, would otherwise
+    // become part of the name and match any value.
+    let constrained = |name: &str| {
+        let declared = name.strip_prefix('*').unwrap_or(name);
+        (declared.contains(':') || declared.chars().any(char::is_whitespace)).then(|| {
+            DefinitionError(format!(
+                "capture name {declared:?} contains ':' or whitespace; captures take no type or \
+                 pattern constraint, so check the value with Matcher::filter",
+            ))
+        })
+    };
     while let Some((offset, character)) = chars.next() {
         let escaped = matches!(character, '{' | '}')
             && chars.peek().is_some_and(|&(_, next)| next == character);
@@ -175,16 +186,10 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
         }
         match (capture.as_mut(), character, escaped) {
             (Some((start, name)), '}', false) => {
-                let catch_all = name.starts_with('*');
-                let declared = name.strip_prefix('*').unwrap_or(name);
-                // Other routers' constraint syntax, such as `{id:[0-9]+}` or `{id:int}`,
-                // would otherwise become part of the name and match any value.
-                if declared.contains(':') || declared.chars().any(char::is_whitespace) {
-                    return Err(DefinitionError(format!(
-                        "capture name {declared:?} contains ':' or whitespace; captures take \
-                         no type or pattern constraint, so check the value with Matcher::filter",
-                    )));
+                if let Some(error) = constrained(name) {
+                    return Err(error);
                 }
+                let catch_all = name.starts_with('*');
                 if !catch_all {
                     ordinary_parameters += 1;
                     if ordinary_parameters > 25 {
@@ -193,7 +198,7 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
                         ));
                     }
                 }
-                let name = declared.to_owned();
+                let name = name.strip_prefix('*').unwrap_or(name).to_owned();
                 if !names.insert(name.clone()) {
                     return Err(DefinitionError(format!("duplicate capture name: {name}")));
                 }
@@ -214,6 +219,12 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
             }
             _ => {}
         }
+    }
+    // A constraint with its own braces, such as `{id:[0-9]{2}}`, leaves the capture open,
+    // because its `}}` reads as an escaped brace. Name the constraint rather than leaving
+    // matchit's generic error about the unclosed parameter.
+    if let Some(error) = capture.as_ref().and_then(|(_, name)| constrained(name)) {
+        return Err(error);
     }
     let invalid_pattern = |error| DefinitionError(format!("{pattern:?}: {error}"));
     let mut router = matchit::Router::new();

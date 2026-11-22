@@ -39,6 +39,11 @@ It has one breaking change to path patterns, covered in the
   `homepage` is the documentation site. These documentation changes leave library behavior
   unchanged.
   [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
+- Release tooling: the Pages workflow resolves a release tag through its fully qualified ref,
+  which the first beta.4 deployment needed, and the release procedure creates a site correction
+  branch from the tag's commit. crates.io now accepts new versions of `warded` only through the
+  release workflow's trusted publishing.
+  [#37](https://github.com/viell-dev/slop-warded-router/issues/37)
 
 ## 0.1.0-beta.4
 
