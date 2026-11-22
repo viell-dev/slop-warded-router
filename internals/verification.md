@@ -144,46 +144,24 @@ commit, run with defaults, without defaults and with each optional feature alone
 Warded's dependency rustdoc with warnings denied. They remove Warded, check the lockfile, and
 restore and run the pinned candidate. Use `scripts/check.sh` for reconstructed package verification.
 
-## Alpha.2 regression and cost probes
+## Regression suites and cost probe
 
-Six tests in `review_regressions.rs` were first run against unchanged alpha.1 (`f35a9ff`) in Linux
-Docker, Rust 1.99.1: all failed for the reported media specificity/parameter ordering, lookup
-priority/wildcards, concrete language definitions, and duplicate path captures. The same test bodies
-remain as regression checks, alongside quoted/wildcard media cases, language exclusions, valid and
-invalid tags, and field-byte limits with valid syntax and repeated-field separators.
+`review_regressions.rs` retains regressions for media specificity and parameter ordering, lookup
+priority and wildcards, quoted/wildcard media cases, concrete language definitions, language
+exclusions, malformed private-use and valid grandfathered tags, field-byte/member/parameter limits
+including repeated-field separators, duplicate path captures, and 50 escaped-name/catch-all
+combinations compared with matchit's decoded names.
 
-The expanded suite checks borrowed configuration ownership, actual cross-thread selection,
-constant-cost router cloning by service clone counts, copy-on-write isolation, boxed errors with
-Axum bodies, non-default response types in request-returning mode, selected readiness failures,
-cancellation, and outer concurrency admission. Shared-offer cache checks include differing sets,
-heads, limits, and malformed-input policies. Strict operand-order behavior remains explicit.
+The suite also checks borrowed configuration ownership, cross-thread selection, constant-cost router
+cloning by service clone counts, copy-on-write isolation, boxed errors with Axum bodies, non-default
+response types in request-returning mode, selected readiness failures, cancellation, outer
+concurrency admission, shared-offer cache isolation across sets/heads/limits/policies, and complete
+`Vary` token matching in listener checks.
 
-Review regressions compare 50 escaped-name/catch-all combinations with matchit's decoded names,
-reject malformed private-use tags while retaining valid private-use/grandfathered controls, and
-exercise supported field-byte/member/parameter bounds across media, language, and encoding. The
-unsupported token-limit setter was removed. Listener checks compare complete Vary tokens so
-`accept-encoding` cannot satisfy an expected `accept` token.
-
-Run `cargo bench --bench selection --locked` for the current focused cost probe: compiled path
-tables with 16/128/1024 routes, independent versus shared media negotiation with 16/128 offers,
-small and near-64-KiB fields, early/late/miss shapes, and near-64-KiB language lookup with
-exclusions. A fresh head includes cache creation in each sample. Every sample asserts the target
-or miss and, for path hits, the captures. The
-[assessment](./beta-assessment.md#selection-cost-decision) records inputs, counts, environment,
-measurements, limits and the indexing decision. This is not a CI timing threshold or throughput
-promise. The earlier alpha.2 shared-offer probe used a different smaller input; retain its historical
-evidence rather than presenting these different shapes as an implementation-only comparison.
-
-## First alpha evidence
-
-On 2026-11-10, the Linux Docker run with Rust 1.99.1 passed all commands above: 22 regression tests,
-four doctests including the negative body-access check, each independent feature configuration,
-Clippy with warnings denied, documentation, the example, and package reconstruction/execution.
-The native Windows machine passed `cargo check`; its installed MSVC runtime libraries were
-unavailable for linking. Hosted Windows CI supplies the required Windows execution evidence.
-
-A negative control temporarily changed `Not` to accept a matching operand. The focused
-`failed_branches_and_negation_cannot_publish_captures` test failed on its capture assertion, then
-passed after the original source was restored. The mutation was made only in a disposable test
-copy. The body-frame test also verifies that its poll counter advances when the returned body is
-actually consumed, and the readiness fixture rejects calls on an unprepared clone.
+Run `cargo bench --bench selection --locked` for the focused cost probe: compiled path tables with
+16/128/1024 routes, independent versus shared media negotiation with 16/128 offers, small and
+near-64-KiB fields, early/late/miss shapes, and near-64-KiB language lookup with exclusions. A fresh
+head includes cache creation in each sample. Every sample asserts the target or miss and, for path
+hits, the captures. The [assessment](./beta-assessment.md#selection-cost-decision) records inputs,
+counts, environment, measurements, limits, and the indexing decision. This is not a CI timing
+threshold or throughput promise.

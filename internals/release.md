@@ -44,10 +44,10 @@ routing semantics, feature names and Rust minimum 1.99.1. Intentional breaking c
 - **RC** identifies a concrete candidate intended to become stable. The owner must explicitly
   approve the first RC after review and the hands-on session in
   [#26](https://github.com/viell-dev/slop-warded-router/issues/26), which used `0.1.0-beta.3`.
-  The owner's report asked for the documentation site in
-  [#29](https://github.com/viell-dev/slop-warded-router/issues/29) before RC. Release it, check it
-  with an independent agent usability review, resolve the findings and return to
-  [#25](https://github.com/viell-dev/slop-warded-router/issues/25) for RC approval.
+  `0.1.0-beta.4` added the documentation site requested in
+  [#29](https://github.com/viell-dev/slop-warded-router/issues/29), and `0.1.0-beta.5` resolved the
+  findings from an independent agent usability review; RC approval now waits on the owner in
+  [#25](https://github.com/viell-dev/slop-warded-router/issues/25).
 - **Stable** requires separate explicit owner approval after review. The hands-on session is the
   human use the stable gate requires while RC and stable stay representative of the tested build.
   After it, independent agent usability reviews cover later candidates and substantial workflow
@@ -113,82 +113,30 @@ release artifact so Cargo records the source commit in `.cargo_vcs_info.json`. A
 source archive omits that provenance and can have a different checksum. A rebase merge gives the
 release a new commit, so package the merged `main` commit rather than the reviewed head.
 
-## First publish (0.1.0-beta.3)
-
-The first version must use a crates.io API token authorized to create a crate. This is a one-time
-`cargo publish` from a Cargo session signed in to crates.io. A maintainer publishes after the
-release PR merges and the required checks pass on its exact `main` commit. Package and verify on
-Linux with the pinned toolchain and a working linker.
-
-Use Bash with GitHub CLI access and `jq`. Set `release_commit` to the verified full SHA on `main`.
-Fetch `main` and check out that commit in a clean Git checkout. Create the annotated
-tag locally and leave it unpushed until trusted publishing is configured:
-
-```sh
-git fetch origin refs/heads/main:refs/remotes/origin/main
-git switch --detach "$release_commit"
-version=0.1.0-beta.3
-git tag -a "$version" -m "Warded $version" "$release_commit"
-
-gate_output="$(mktemp)"
-GITHUB_REF="refs/tags/$version" GITHUB_SHA="$release_commit" \
-  GITHUB_REPOSITORY=viell-dev/slop-warded-router GITHUB_SERVER_URL=https://github.com \
-  GITHUB_OUTPUT="$gate_output" bash .github/scripts/release-verify.sh
-rm -- "$gate_output"
-```
-
-Continue only after the gate succeeds. With GitHub CLI access and the release commit verified,
-package and compare the index before uploading:
-
-```sh
-cargo package --locked --target-dir target
-checksum="$(sha256sum "target/package/warded-$version.crate" | cut -d ' ' -f 1)"
-printf 'Warded %s SHA-256 %s\n' "$version" "$checksum"
-index_output="$(mktemp)"
-GITHUB_OUTPUT="$index_output" bash .github/scripts/release-index.sh check "$version" "$checksum"
-cat "$index_output"
-rm -- "$index_output"
-```
-
-Only `published=false` permits the upload. A matching existing version means the upload already
-succeeded. Investigate any checksum mismatch before proceeding. `cargo package` has just built and
-verified these bytes, so upload without repeating the build, as the release workflow does. The
-confirm step then checks the published bytes:
-
-```sh
-cargo publish --locked --no-verify --registry crates-io --target-dir target
-bash .github/scripts/release-index.sh confirm "$version" "$checksum"
-```
-
-If the signed-in Cargo session is on a system that cannot build the package, upload from a clean
-checkout of the same commit there only after `cargo package --locked --no-verify` reproduces the
-verified Linux checksum. Then run the same `cargo publish` command and confirm the index checksum.
-
 ## Trusted publishing
 
-After the crate exists, create the GitHub environment `crates-io`. Under **Deployment branches and
-tags**, choose **Selected branches and tags**, add a **Tag** rule `[0-9]*.[0-9]*.[0-9]*`, and allow
-no branch deployments. No registry token secret is needed.
+`warded` publishes through the [release workflow](../.github/workflows/release.yml) using crates.io
+[Trusted Publishing](https://crates.io/docs/trusted-publishing) (the one-time initial crate upload
+ran for `0.1.0-beta.3`, and the crate's trusted-publishing-only setting has refused API token
+uploads since `0.1.0-beta.4`).
+
+The GitHub environment `crates-io` allows only tags matching `[0-9]*.[0-9]*.[0-9]*` and no branch
+deployments; no registry token secret is configured. The crates.io Trusted Publishing settings
+authorize owner `viell-dev`, repository `slop-warded-router`, workflow `release.yml`, and
+environment `crates-io`. A repository ruleset blocks updates and deletions of version tags, so a
+published tag cannot move.
 
 Pushing a version tag is the release decision: any such tag runs its own commit's workflow in this
 environment, and the gate then requires a verified `main` commit. Keep tag creation with trusted
-maintainers. A repository ruleset blocks updates and deletions of version tags, so a published tag
-cannot move.
+maintainers.
 
-In the crate's [Trusted Publishing settings](https://crates.io/docs/trusted-publishing), add a
-GitHub Actions publisher with owner `viell-dev`, repository `slop-warded-router`, workflow filename
-`release.yml` and environment `crates-io`. Once a version has published through the workflow,
-enable the crate's trusted-publishing-only setting, so crates.io refuses uploads with an API
-token. It is on since `0.1.0-beta.4`, the first such version.
-
-Push the verified annotated tag with `git push origin "refs/tags/$version"`. On beta.3, the
-[workflow](../.github/workflows/release.yml) will compare the manually published bytes and exercise
-the token exchange. For later releases follow the exact-commit verification above, then create
-and push the annotated tag. The workflow checks that the tag equals the Cargo version and that its
-commit is reachable from `main`. Only the environment's publish job can request a registry token.
-It authenticates after a matching existing publication too, so a successful run also verifies the
-trusted-publisher configuration. An existing version only succeeds when its index checksum matches.
-The workflow uploads only when the version is missing, then confirms the checksum.
+After exact-commit verification passes on `main`, create and push the annotated tag with
+`git tag -a "$version" -m "Warded $version" "$release_commit"` and
+`git push origin "refs/tags/$version"`. The workflow checks that the tag equals the Cargo version
+and that its commit is reachable from `main`. Only the environment's publish job can request a
+registry token. It authenticates after a matching existing publication too, so a successful run also
+verifies the trusted-publisher configuration. An existing version only succeeds when its index
+checksum matches. The workflow uploads only when the version is missing, then confirms the checksum.
 
 ## Verify the publication
 
