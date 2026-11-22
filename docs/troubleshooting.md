@@ -14,6 +14,7 @@ table. The message names the problem:
 | `a path pattern must start with / and contain no query or fragment`    | Start the pattern with `/`. Match query parameters with `param_pair` instead.     |
 | `"/users/{id": Parameters must be registered with a valid name`          | Close the brace and give the parameter a name. The quoted pattern comes first.    |
 | `unmatched closing brace in path pattern`                               | Remove the `}`, or write `}}` for a literal brace.                                |
+| `capture name "id:[0-9]+" contains ':' or whitespace; …`               | Write `{id}` and check the value with `filter`; see [other routers](#path-syntax-from-other-routers). |
 | `duplicate capture name: id`                                            | Rename one parameter; a catch-all counts too.                                     |
 | `"…": Catch-all parameters are only allowed at the end of a route`      | Move `{*name}` to the end, or use an ordinary parameter.                          |
 | `"…": Only one parameter is allowed per path segment`                   | Split the segment, or capture it whole and check it with `filter`.                |
@@ -80,6 +81,8 @@ Common causes, roughly in order of frequency:
 - **The path is not exactly the pattern.** A trailing slash, a different case or a percent escape
   makes a different path. Warded does not normalize or redirect. See [raw
   paths](./paths.md#raw-paths).
+- **The pattern uses another router's syntax.** See [path syntax from other
+  routers](#path-syntax-from-other-routers) below.
 - **HEAD with a `get()` route.** `get()` matches only GET; use `get().or(head())`.
 - **A repeated header with `header_eq`.** `header_eq` needs exactly one field; use
   `header_any_eq` when the field may repeat.
@@ -98,15 +101,79 @@ Common causes, roughly in order of frequency:
 - **A selected service answered 404.** The router never tries later routes after selecting one.
   With a mounted Axum router, the request may reach the right application and then miss inside it.
 
+## Path syntax from other routers
+
+Warded declares parameters only with braces, and a parameter takes no type or pattern. [Syntax
+from other routers](./paths.md#syntax-from-other-routers) explains the rules with an example.
+
+- **`/articles/:slug` never matches `/articles/hello`.** Outside braces, `:` and `*` are literal
+  text, so the route matches only a request for `/articles/:slug`. Write `/articles/{slug}`, and
+  `/files/{*rest}` instead of `/files/*rest`.
+- **`{id:[0-9]+}` or `{id:int}` is a definition error.** A name cannot contain `:` or whitespace,
+  so constraint syntax is refused when you build the route. Write `{id}` and check the value with
+  [`filter`](./paths.md#refine-captures-with-filter). 0.1.0-beta.4 and earlier accepted such a
+  pattern, with the whole text as the name, and it matched any value; see
+  [upgrading](./upgrading.md#from-0-1-0-beta-4).
+- **`{ id }` is a definition error.** Remove the spaces inside the braces.
+
 ## The response is not what the route should produce
 
 - **A cache served another variant.** Add `Vary` for every negotiated field; see [caching and
   Vary](./negotiation.md#caching-and-vary).
-- **Captures are missing in a handler.** Warded inserts `Captures` and `Selection` as request
-  extensions; Axum's `Path` extractor does not see them. A fallback receives none, and a nested
-  router's match replaces the outer ones. See [nested routers](./tower.md#nested-routers).
+- **An Axum handler answers 500 `No paths parameters found for matched route`.** The handler
+  uses Axum's `Path` extractor, which reads Axum's own route parameters. Warded inserts its
+  captures as the `Captures` and `Selection` request extensions instead, so read them with
+  `Extension<Captures>`, as in the example below. A fallback receives no captures, and a nested
+  router's match replaces the outer ones; see [nested routers](./tower.md#nested-routers).
 - **The body was never read.** That is the selected service's job; Warded passes it through
   unread.
+
+The same route with each extractor:
+
+```rust
+use axum::{
+    Extension,
+    body::Body,
+    extract::Path,
+    http::{Request, StatusCode},
+    routing::get,
+};
+use http_body_util::BodyExt;
+use tower::ServiceExt;
+use warded::{Captures, Router, matchers::path};
+
+/// Axum's extractor: it finds no parameters, because Axum did not match this route.
+async fn with_path(Path(id): Path<String>) -> String {
+    format!("order {id}")
+}
+
+/// Warded's captures, from the request extensions.
+async fn with_captures(Extension(captures): Extension<Captures>) -> String {
+    format!("order {}", captures.get("id").unwrap_or_default())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let request = || Request::builder().uri("/orders/42").body(Body::empty());
+
+    let mistaken = Router::new().route(path("/orders/{id}")?, get(with_path));
+    let response = mistaken.oneshot(request()?).await?;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+        response.into_body().collect().await?.to_bytes(),
+        "No paths parameters found for matched route"
+    );
+
+    let fixed = Router::new().route(path("/orders/{id}")?, get(with_captures));
+    let response = fixed.oneshot(request()?).await?;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.into_body().collect().await?.to_bytes(), "order 42");
+    Ok(())
+}
+```
+
+A mounted `axum::Router` matches its own routes, so `Path` works inside it; see [mounting Axum
+routers](./tower.md#mounting-axum-routers).
 
 ## Reporting a problem
 
