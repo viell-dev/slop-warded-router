@@ -13,7 +13,7 @@ hero:
       link: /negotiation
     - theme: alt
       text: API reference
-      link: https://docs.rs/warded/0.1.0-beta.3/warded/
+      link: https://docs.rs/warded/0.1.0-beta.4/warded/
 features:
   - title: Every condition counts
     details: A route is selected only when all of its conditions hold. A route that fails on a header or a language lets selection continue, in the order you declared.

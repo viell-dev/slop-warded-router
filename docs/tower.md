@@ -483,4 +483,4 @@ unchanged.
 `router.select(&Head::from_request(&request))` returns the `Selection` the router would make,
 without calling a service or touching the body. Use it in tests or to log routing decisions.
 
-[server example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.3/examples/server.rs
+[server example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.4/examples/server.rs

@@ -13,7 +13,7 @@ oldest first.
 The raw query-string helpers are renamed, so they can no longer be confused with the new `query()`
 helper for the QUERY method. Their matching is unchanged, and the old names are gone:
 
-| 0.1.0-beta.3                  | Now                           |
+| 0.1.0-beta.3                  | 0.1.0-beta.4                  |
 | ----------------------------- | ----------------------------- |
 | `matchers::query_pair`        | `matchers::param_pair`        |
 | `matchers::query_present`     | `matchers::param_present`     |
