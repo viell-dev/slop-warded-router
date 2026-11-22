@@ -31,9 +31,13 @@ while (($#)); do
 done
 case "$path" in
     https://api.github.com/jobs) body="$(cat "$TEST_JOBS")" ;;
-    "repos/$GITHUB_REPOSITORY/commits/tags/0.1.0-beta.4")
+    "repos/$GITHUB_REPOSITORY/commits/refs/tags/0.1.0-beta.4")
         body="{\"sha\":\"$TEST_TAG_COMMIT\"}" ;;
-    "repos/$GITHUB_REPOSITORY/commits/heads/site-0.1.0-beta.4")
+    # GitHub answers the short tags/<tag> form with HTTP 422, which broke the first deployment.
+    "repos/$GITHUB_REPOSITORY/commits/tags/"*)
+        echo "gh: No commit found for SHA: ${path#*/commits/} (HTTP 422)" >&2
+        exit 1 ;;
+    "repos/$GITHUB_REPOSITORY/commits/refs/heads/site-0.1.0-beta.4")
         [[ -n "${TEST_NO_BRANCH:-}" ]] && exit 1
         body="{\"sha\":\"$TEST_BRANCH_COMMIT\"}" ;;
     "repos/$GITHUB_REPOSITORY/compare/$TEST_TAG_COMMIT...$TEST_BRANCH_COMMIT")
