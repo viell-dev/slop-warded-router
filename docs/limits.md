@@ -1,3 +1,7 @@
+---
+description: "What Warded does, what your server and application provide, which environments are tested, and what selection costs."
+---
+
 # Scope and limits
 
 Warded is a router: it selects one destination for a request from ordered conditions on the

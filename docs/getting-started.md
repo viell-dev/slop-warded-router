@@ -1,3 +1,7 @@
+---
+description: "Install Warded, declare a first route table, and either select targets yourself or dispatch requests to Tower services."
+---
+
 # Getting started
 
 Warded chooses one destination for an HTTP request by checking conditions on the request head: the
