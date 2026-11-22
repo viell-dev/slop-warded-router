@@ -1,6 +1,6 @@
 use crate::{Captures, Head, MatchError, Matcher};
 
-/// The identity and captures of one committed selection.
+/// Which route was selected, by declaration index, and that route's captures.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Selection {
     /// Zero-based declaration index.
@@ -21,7 +21,7 @@ pub(crate) fn select<'a>(
     Ok(None)
 }
 
-/// A selected target and its capture metadata.
+/// The selected route's target, with its index and captures.
 #[derive(Debug)]
 pub struct Selected<'a, T> {
     /// The consumer's target, which has not been executed.
@@ -30,14 +30,14 @@ pub struct Selected<'a, T> {
     pub selection: Selection,
 }
 
-/// An ordered, synchronous route table, independent of Tower and body types.
+/// A route table that returns the first matching route's target without running it.
 ///
 /// Local-only custom matchers are supported. No fallback response is fabricated.
 pub struct Selector<T> {
     entries: Vec<(Box<dyn Matcher>, T)>,
 }
 
-/// An ordered selector whose matchers may move between and be shared by threads.
+/// A [`Selector`] whose matchers are `Send` and `Sync`, for a table shared between threads.
 ///
 /// Targets retain their own `Send`/`Sync` requirements. Use [`Selector`] when
 /// custom matchers capture local state such as `Rc` or `Cell`.

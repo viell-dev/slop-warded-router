@@ -100,7 +100,7 @@ use std::{
 
 mod scoring;
 
-/// How a client's language range reaches a server's language offer (RFC 4647).
+/// How a language the client asks for can reach a language you offer (RFC 4647).
 ///
 /// ```
 /// use http::Request;
@@ -120,19 +120,25 @@ mod scoring;
 /// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum LanguageMatching {
-    /// Try ranges in quality/client order, truncating each before the next range.
+    /// Shorten each requested language until it reaches an offer: `fr-CA` can get `fr`.
     ///
-    /// A request for `fr-CA` tries the offer `fr-CA`, then `fr`, before the next range.
-    /// A positive `*` selects the first offer that is not excluded, after every named range.
+    /// Ranges are tried from the highest weight down, in the client's order among equal
+    /// weights. A request for `fr-CA` tries the offer `fr-CA`, then `fr`, before the next
+    /// range. A positive `*` selects the first offer that is not excluded, after every
+    /// named range.
     Lookup,
-    /// A range accepts itself and tags beginning with that range plus a hyphen.
+    /// Let each requested language cover the longer tags under it: `fr` can get `fr-CA`.
     ///
-    /// A request for `fr` accepts the offers `fr`, `fr-CA` and `fr-FR`. Each offer takes
+    /// A range covers itself and the tags that continue it after a hyphen, so a request for
+    /// `fr` accepts the offers `fr`, `fr-CA` and `fr-FR` but not `fra`. Each offer takes
     /// the weight of its longest covering range, and equal weights keep offer order.
     BasicFilter,
 }
 
-/// Bounds for one negotiation operation, independent of the parser dependency's API.
+/// Size limits on the field that a negotiation condition reads.
+///
+/// A field over a limit is malformed: the condition misses, or errors with
+/// [`Negotiated::invalid_is_error`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct Limits {
     parser: parse_net::Limits,
@@ -140,18 +146,18 @@ pub struct Limits {
 }
 
 impl Limits {
-    /// Default grammar bounds and a 64 KiB combined-field byte limit.
+    /// The default limits, including 64 KiB for the field with repeated lines combined.
     pub const DEFAULT: Self = Self {
         parser: parse_net::Limits::DEFAULT,
         field_bytes: 65_536,
     };
-    /// Bound the number of nonempty list members (default 1024).
+    /// Limit the number of nonempty list members (default 1024).
     #[must_use]
     pub const fn max_list_members(mut self, count: u16) -> Self {
         self.parser = self.parser.max_list_members(count);
         self
     }
-    /// Bound parameters per member, counting `q` (default 256).
+    /// Limit the parameters of each member, counting `q` (default 256).
     ///
     /// Duplicate parameters are always refused, and that check also refuses a member with more
     /// than 64 parameters, so a bound above 64 accepts no more.
@@ -160,7 +166,7 @@ impl Limits {
         self.parser = self.parser.max_params(count);
         self
     }
-    /// Bound all combined field bytes, including commas between repeated fields.
+    /// Limit the field's bytes, including the commas that join repeated fields.
     #[must_use]
     pub const fn max_field_bytes(mut self, count: usize) -> Self {
         self.field_bytes = count;
@@ -195,16 +201,19 @@ struct OfferSet {
     values: Vec<String>,
 }
 
-/// A reusable complete offer set with identical non-negotiation applicability.
+/// Every alternative a group of routes offers, such as the languages a page exists in.
 ///
-/// Media, encoding, and basic filtering ties use server offer order. Lookup
-/// uses client range order among equal weights and offer order for a default.
-/// An `identity` encoding that no `identity` or `*` member weights is preferred
-/// only when no other offer is acceptable.
+/// [`Offers::selected`] gives each alternative route a condition that matches only when
+/// its offer is the one the client prefers, so at most one of those routes matches.
 ///
-/// Share one set among routes that are alternatives with otherwise identical conditions.
-/// If a route's other conditions can fail while the set still prefers its offer, no
-/// alternative matches; give routes with different availability their own sets.
+/// Equal weights go to the offer listed first in the set, except that lookup keeps the
+/// client's order of equal-weight ranges and uses offer order only for a default. An
+/// `identity` encoding that no `identity` or `*` member weights is preferred only when no
+/// other offer is acceptable.
+///
+/// Share one set only among routes whose other conditions are the same. If a route's
+/// other conditions can fail while the set still prefers its offer, no alternative
+/// matches; give routes with different availability their own sets.
 ///
 /// ```
 /// use http::Request;
@@ -265,22 +274,27 @@ impl Offers {
             shared: Arc::new(OfferSet { field, values }),
         })
     }
-    /// Concrete media types, including representation parameters but no weight.
+    /// An offer set for `Accept`: media types such as `text/html`, without wildcards.
+    ///
+    /// An offer may carry parameters, as in `text/html;level=1`, but not a `q` weight.
     pub fn media_types(
         values: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<Self, DefinitionError> {
         Self::new(Field::Media, values)
     }
-    /// Well-formed concrete BCP 47 tags, including private-use/grandfathered tags.
+    /// An offer set for `Accept-Language`: language tags such as `en` or `fr-CA`.
     ///
-    /// Syntax is checked by `oxilangtag`; IANA registration is not required.
+    /// Each offer must be a well-formed BCP 47 tag, including private-use and grandfathered
+    /// tags. `oxilangtag` checks the syntax; the tag need not be registered with IANA.
     pub fn languages(
         values: impl IntoIterator<Item = impl Into<String>>,
         mode: LanguageMatching,
     ) -> Result<Self, DefinitionError> {
         Self::new(Field::Language(mode), values)
     }
-    /// Supported content codings; this does not compress a response.
+    /// An offer set for `Accept-Encoding`: content codings such as `br` or `gzip`.
+    ///
+    /// This only chooses a coding; the selected service compresses or sends the file.
     ///
     /// An offer takes the weight of its listed coding (`x-gzip` is `gzip`), otherwise of `*`.
     /// `identity` is acceptable unless `identity;q=0`, or `*;q=0` without an `identity` member,
@@ -308,7 +322,9 @@ impl Offers {
     ) -> Result<Self, DefinitionError> {
         Self::new(Field::Encoding, values)
     }
-    /// Match the preferred offer, identified by its exact registered string.
+    /// A condition that matches when `offer` is the client's preferred offer in this set.
+    ///
+    /// Name the offer exactly as you listed it in the set.
     pub fn selected(&self, offer: &str) -> Result<Negotiated, DefinitionError> {
         let expected = self
             .shared
@@ -325,7 +341,7 @@ impl Offers {
     }
 }
 
-/// A predicate for one choice within a complete shared offer set.
+/// A route condition on one offer, from [`Offers::selected`] or an `accepts_*` function.
 #[derive(Clone, Debug)]
 pub struct Negotiated {
     offers: Offers,
@@ -334,16 +350,16 @@ pub struct Negotiated {
     limits: Limits,
 }
 impl Negotiated {
-    /// Report malformed input as an error. The default is an ordinary miss.
+    /// Report a malformed field as an error instead of the default miss.
     ///
-    /// Negating the default malformed-as-miss predicate matches malformed input.
-    /// Use this policy when that is inappropriate; errors propagate through NOT.
+    /// With the default, `not()` of this condition matches a malformed field. Use this when
+    /// that is wrong: an error passes through `not()` and stops selection.
     #[must_use]
     pub fn invalid_is_error(mut self) -> Self {
         self.invalid_is_error = true;
         self
     }
-    /// Configure grammar and combined-field bounds.
+    /// Read the field with these limits instead of [`Limits::DEFAULT`].
     #[must_use]
     pub fn parser_limits(mut self, limits: Limits) -> Self {
         self.limits = limits;
@@ -446,18 +462,18 @@ fn combined_field<'a>(
     Ok(Some(Cow::Owned(joined)))
 }
 
-/// Test one media type's acceptability, without comparing other routes.
+/// Match when the client accepts this media type, whatever else you offer.
 pub fn accepts_media_type(offer: &str) -> Result<Negotiated, DefinitionError> {
     Offers::media_types([offer])?.selected(offer)
 }
-/// Test one language under an explicit lookup or basic-filtering scheme.
+/// Match when the client accepts this language under the given matching mode.
 pub fn accepts_language(
     offer: &str,
     mode: LanguageMatching,
 ) -> Result<Negotiated, DefinitionError> {
     Offers::languages([offer], mode)?.selected(offer)
 }
-/// Test one content coding, including identity and absence/empty-field rules.
+/// Match when the client accepts this content coding, including `identity`.
 ///
 /// This answers only whether the coding is acceptable. An unlisted `identity` is acceptable
 /// unless `*;q=0` refuses it, even where a shared [`Offers::encodings`] set prefers a listed

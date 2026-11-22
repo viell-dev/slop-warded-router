@@ -12,7 +12,9 @@ use tower::{Service, ServiceExt, util::BoxCloneSyncService};
 type Destination<B, R, E> = BoxCloneSyncService<Request<B>, Response<R>, E>;
 type Route<B, R, E> = (Arc<dyn Matcher + Send + Sync>, Destination<B, R, E>);
 
-/// A routing or selected-service failure; no variant triggers route reselection.
+/// A [`Router`] failure: a condition could not be evaluated, or the selected service failed.
+///
+/// Neither failure makes the router try another route.
 #[non_exhaustive]
 pub enum DispatchError<E> {
     /// A declared predicate could not evaluate the head.
@@ -45,7 +47,7 @@ impl<E: std::error::Error + 'static> std::error::Error for DispatchError<E> {
     }
 }
 
-/// Ordered request-head routing into cloneable Tower services.
+/// A Tower service that selects a route for each request and calls that route's service.
 ///
 /// Readiness waits inside the selected response future, using that service's
 /// `oneshot`. Apply an outer concurrency limit for admission control. This router
@@ -180,7 +182,7 @@ where
     }
 }
 
-/// A request-preserving dispatch error used only by [`RequestRouter`].
+/// A [`RequestRouter`] failure: no route matched, or dispatch failed.
 #[non_exhaustive]
 pub enum RequestDispatchError<B, E> {
     /// No route or custom fallback was applicable; the body remains unread.
@@ -214,7 +216,9 @@ impl<B, E: std::error::Error + 'static> std::error::Error for RequestDispatchErr
     }
 }
 
-/// An explicit no-match adapter, created by [`Router::error_on_miss`].
+/// A router that returns an unmatched request, body unread, instead of answering 404.
+///
+/// Create it with [`Router::error_on_miss`].
 ///
 /// The normal [`Router`] error contains no body, so it can be boxed even when
 /// the request body is not `Sync`. Only this opt-in adapter retains requests.

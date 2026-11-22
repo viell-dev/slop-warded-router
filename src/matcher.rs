@@ -1,7 +1,7 @@
 use crate::Head;
 use std::{collections::BTreeMap, fmt};
 
-/// Raw path captures from a successful candidate.
+/// The raw values that a route's path patterns captured, by parameter name.
 ///
 /// Values retain percent encoding. This is a Warded extension type, not an
 /// adapter for any framework's internal path extractor.
@@ -38,7 +38,9 @@ impl Captures {
     }
 }
 
-/// An operational evaluation error, distinct from an ordinary mismatch.
+/// A condition that could not be evaluated, which stops selection.
+///
+/// A condition that does not hold is a miss, not an error.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum MatchError {
@@ -69,10 +71,11 @@ impl fmt::Display for MatchError {
 }
 impl std::error::Error for MatchError {}
 
-/// A match with tentative captures, an ordinary miss, or an operational error.
+/// What a matcher returns: `Ok(Some(captures))` for a match, `Ok(None)` for a miss, or
+/// an error.
 pub type MatchResult = Result<Option<Captures>, MatchError>;
 
-/// A synchronous, body-free request predicate.
+/// A route condition: a check on the request head that matches, misses or fails.
 ///
 /// Implementations should be bounded and free of externally visible effects.
 /// There are no `Send` or `Sync` bounds here; only the Tower adapter requires them.
