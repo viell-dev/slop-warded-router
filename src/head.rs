@@ -15,7 +15,9 @@ pub enum TransportSecurity {
     Unsecure,
 }
 
-/// An immutable request-head view with no body or arbitrary extension access.
+/// The parts of a request that matchers read: method, URI, version, headers and security.
+///
+/// It has no access to the body or to arbitrary extensions.
 ///
 /// With negotiation enabled it memoizes choices within this view. Cloning the
 /// head preserves its inputs and starts a fresh cache; it is not `Copy`.
