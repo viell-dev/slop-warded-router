@@ -6,6 +6,7 @@ rust-version = "1.99.1"
 license = "MIT OR Apache-2.0"
 description = "Ordered routing over complete HTTP request-head conditions"
 repository = "https://github.com/viell-dev/slop-warded-router"
+homepage = "https://viell-dev.github.io/slop-warded-router/"
 readme = "README.md"
 keywords = ["http", "router", "tower", "routing"]
 categories = ["web-programming::http-server"]
