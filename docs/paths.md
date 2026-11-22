@@ -209,8 +209,9 @@ kind of value. The rules for `filter`:
 
 Routers write parameters in different ways, and Warded reads only its own braces. Outside braces,
 `:` and `*` are ordinary characters, so `/articles/:slug` is a literal path that matches only a
-request for `/articles/:slug`, and `/files/*rest` matches only `/files/*rest`. Write
-`/articles/{slug}` and `/files/{*rest}` instead.
+request for `/articles/:slug`, and `/files/*rest` matches only `/files/*rest`. Angle brackets are
+ordinary characters too, so `/users/<id>` and `/users/<int:id>` are literal paths as well. Write
+`/articles/{slug}`, `/files/{*rest}` and `/users/{id}` instead.
 
 Inside braces, everything is the parameter's name. Warded has no constraint syntax, such as
 `{id:[0-9]+}` or `{id:int}`, so a name containing `:` or whitespace is a definition error rather
@@ -234,6 +235,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     assert!(!accepts(&literal, "/articles/hello")?);
     assert!(accepts(&literal, "/articles/:slug")?);
     assert!(!accepts(&path("/files/*rest")?, "/files/css/site.css")?);
+    assert!(!accepts(&path("/users/<id>")?, "/users/42")?);
+    assert!(!accepts(&path("/users/<int:id>")?, "/users/42")?);
 
     // Braces declare the parameters.
     assert!(accepts(&path("/articles/{slug}")?, "/articles/hello")?);
@@ -244,6 +247,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     assert!(error.to_string().contains("Matcher::filter"));
     assert!(path("/users/{id:int}").is_err());
     assert!(path("/users/{ id }").is_err());
+    let error = path("/users/{id:\\d{4}}").expect_err("a constraint with braces is an error too");
+    assert!(error.to_string().contains("Matcher::filter"));
 
     // The constraint as a filter on the raw value.
     let user = path("/users/{id}")?.filter(|captures| {
