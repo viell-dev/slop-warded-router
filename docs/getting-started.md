@@ -14,7 +14,7 @@ Warded needs Rust 1.99.1 or later. In your Cargo project, add the exact release 
 crate, whose request types the examples use:
 
 ```sh
-cargo add 'warded@=0.1.0-beta.4' 'http@1.5'
+cargo add warded@=0.1.0-beta.4 http@1.5
 ```
 
 This adds the following to `Cargo.toml`:
@@ -103,8 +103,17 @@ two ways to use the selection:
   It selects a route, adds the captures to the request's extensions and calls that route's
   service. Without a match it responds 404, unless you set a fallback.
 
-The same route as a `Router`. The examples on this site that run services also use `tokio`,
-`tower`, `bytes` and `http-body-util`, which [Tower and Axum](./tower.md#dependencies) lists:
+The same route as a `Router`. This example, like the other examples on this site that run
+services, also uses `tokio`, `tower`, `bytes` and `http-body-util`. Add them with:
+
+```sh
+cargo add tokio@1 --features macros,rt-multi-thread
+cargo add tower@0.5 --features util
+cargo add bytes@1 http-body-util@0.1
+```
+
+[Tower and Axum](./tower.md#dependencies) lists the resulting `Cargo.toml` entries, together with
+Axum for the examples that use it.
 
 ```rust
 use bytes::Bytes;

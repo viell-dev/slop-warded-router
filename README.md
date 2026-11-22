@@ -18,7 +18,7 @@ Warded requires Rust 1.99.1 or later. In your Cargo project, add the exact prere
 `http` types used in the example:
 
 ```sh
-cargo add 'warded@=0.1.0-beta.4' 'http@1.5'
+cargo add warded@=0.1.0-beta.4 http@1.5
 ```
 
 This adds the following to `Cargo.toml`:
