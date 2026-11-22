@@ -40,7 +40,8 @@ fi
 # The unprefixed version tags that the Release workflow publishes.
 [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] ||
     fail "'$tag' is not an unprefixed version tag"
-tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/tags/$tag" --jq .sha)" ||
+# The commits API needs the fully qualified ref: it answers tags/<tag> with HTTP 422.
+tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$tag" --jq .sha)" ||
     fail "The tag $tag does not exist"
 if [[ "$GITHUB_EVENT_NAME" == workflow_run && "$tag_commit" != "$RELEASE_COMMIT" ]]; then
     fail "The tag $tag names $tag_commit, not the released commit $RELEASE_COMMIT"
@@ -72,7 +73,7 @@ if [[ "$corrections" == true ]]; then
     # Corrections must build on the release and change nothing but its documentation, so the
     # site never describes unreleased behavior.
     branch="site-$tag"
-    commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/heads/$branch" --jq .sha)" ||
+    commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/heads/$branch" --jq .sha)" ||
         fail "The branch $branch does not exist"
     comparison="$(gh api "repos/$GITHUB_REPOSITORY/compare/$tag_commit...$commit")" ||
         fail "Could not compare $branch with $tag"
