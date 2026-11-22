@@ -93,7 +93,7 @@ and checks both compilation modes.
    [upgrading page](../docs/upgrading.md) for any change that needs consumer action, and the
    changelog; `scripts/check.sh` fails if they name another version or a README link is
    relative. The changelog entry links any request issue the release serves, as those of beta.3
-   and beta.4 link the
+   to beta.5 link the
    [hands-on request](https://github.com/viell-dev/slop-warded-router/issues/26). Review the
    complete PR and pass required CI on its final head. After integration, verify the commit and
    tree against the reviewed head and refresh any evidence invalidated by integration.

@@ -218,4 +218,4 @@ point it at a service that answers with a redirect; Warded does not create redir
 every listener supplies the context, the first route sees every request, and later routes can
 assume HTTPS.
 
-[server example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.4/examples/server.rs
+[server example]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.5/examples/server.rs

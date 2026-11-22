@@ -981,5 +981,5 @@ Negotiation selects a route; the rest is application policy:
 - Response headers: `Content-Type`, `Content-Language`, `Content-Encoding` and `Vary`.
 - Compressing or converting the content itself.
 
-The [API reference](https://docs.rs/warded/0.1.0-beta.4/warded/negotiation/index.html) lists the
+The [API reference](https://docs.rs/warded/0.1.0-beta.5/warded/negotiation/index.html) lists the
 negotiation types and their options.
