@@ -103,6 +103,11 @@ terminal catch-all does not consume ordinary-parameter capacity. The closing-bra
 contained the escape-marker defect below; after its repair it is defence in depth. Definition
 errors from matchit are prefixed with the declared pattern.
 
+Construction also rejects a name containing `:` or whitespace. matchit 0.9.2 accepts such names,
+so another router's constraint syntax, such as `{id:[0-9]+}`, became a parameter that matched any
+value; refusing it keeps `filter` the one place for value conditions
+([#39](https://github.com/viell-dev/slop-warded-router/issues/39)).
+
 matchit 0.9.2 can lose the escape marker for a literal opener immediately after a parameter
 when normalization changes the parameter's byte length. Warded validates the affected names with
 matchit, inserts a one-byte name at each affected position and restores the declared names in
