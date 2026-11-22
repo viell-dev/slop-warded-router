@@ -177,7 +177,9 @@ cannot move.
 
 In the crate's [Trusted Publishing settings](https://crates.io/docs/trusted-publishing), add a
 GitHub Actions publisher with owner `viell-dev`, repository `slop-warded-router`, workflow filename
-`release.yml` and environment `crates-io`.
+`release.yml` and environment `crates-io`. Once a version has published through the workflow,
+enable the crate's trusted-publishing-only setting, so crates.io refuses uploads with an API
+token. It is on since `0.1.0-beta.4`, the first such version.
 
 Push the verified annotated tag with `git push origin "refs/tags/$version"`. On beta.3, the
 [workflow](../.github/workflows/release.yml) will compare the manually published bytes and exercise
@@ -282,7 +284,8 @@ release with a new version.
 Later versions publish through the workflow. If it cannot publish a verified version, for example
 because the trusted-publisher configuration fails, fix the cause and rerun it. A manual token
 upload of such a version needs the owner's recorded go-ahead, the same exact-commit checks and
-post-publication verification. Keep tokens out of the repository and Actions secrets.
+post-publication verification, and the trusted-publishing-only setting turned off for the upload
+and on again afterwards. Keep tokens out of the repository and Actions secrets.
 
 If a published build must be withdrawn, the owner yanks it on crates.io or with
 `cargo yank --version "$version" warded` from a session whose token has the yank scope; the
