@@ -52,4 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 [Get started](./getting-started.md) to install Warded and build a first route table, read [how
-selection works](./selection.md), or go straight to [content negotiation](./negotiation.md).
+selection works](./selection.md), or go straight to [content negotiation](./negotiation.md). When
+a route does not behave as you expect, see [troubleshooting](./troubleshooting.md). [Scope and
+limits](./limits.md) lists what Warded leaves to your server and application, the tested
+environments and what selection costs.

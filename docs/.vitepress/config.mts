@@ -88,6 +88,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: "Guide", items: [...start, ...guides] },
+      { text: "Help", items: help },
       { text: "API reference", link: api },
       { text: version, items: releases },
     ],
