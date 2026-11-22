@@ -250,6 +250,7 @@ stale readme_append "\n${fence}toml\nwarded = { version = \"=0.0.0-stale\" }\n${
 stale readme_append \
     "\n${fence}toml\nwarded = { default-features = false, version = \"=0.0.0-stale\" }\n${fence}\n"
 stale readme_append "\n${fence}toml\n  warded = \"=0.0.0-stale\"\n${fence}\n"
+stale readme_append "\n${fence}sh\ncargo add warded@=0.0.0-stale http@1.5\n${fence}\n"
 stale readme_append '\nSee https://docs.rs/warded/0.0.0-stale.\n'
 stale sed -i "s/warded = \"=$release_version\"/warded = \"0.1\"/g" "$scratch/text/README.md"
 stale sed -i -E "s/^## $release_version( |\$)/## 0.0.0-stale\\1/" "$scratch/text/CHANGELOG.md"
@@ -273,6 +274,9 @@ text_case
 site_append '\nSee [selection](./selection.md).\n'
 text_check
 stale site_append "\n${fence}sh\ncargo add 'warded@=0.0.0-stale'\n${fence}\n"
+# The pages show the unquoted form, which cmd.exe also accepts, with or without later arguments.
+stale site_append "\n${fence}sh\ncargo add warded@=0.0.0-stale http@1.5\n${fence}\n"
+stale site_append "\n${fence}sh\ncargo add warded@=0.0.0-stale\n${fence}\n"
 stale site_append "\n${fence}toml\nwarded = { version = \"=0.0.0-stale\" }\n${fence}\n"
 stale site_append '\n[api]: https://docs.rs/warded/0.0.0-stale/warded/\n'
 stale site_append '\nSee https://github.com/viell-dev/slop-warded-router/blob/0.0.0-stale/README.md.\n'

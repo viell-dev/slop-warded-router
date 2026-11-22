@@ -21,6 +21,10 @@ appear here before the next release.
   language from one route with a path capture. It also says that one malformed member makes the
   whole field malformed, so `fr, garbage!!` reaches the default.
   [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
+- Write the install command without quotes, as `cargo add warded@=<version> http@1.5`, which
+  `cmd.exe` accepts as well as PowerShell and POSIX shells. Getting started also gives the
+  dependencies of its Tower example their own `cargo add` commands.
+  [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
 
 ## 0.1.0-beta.4
 
