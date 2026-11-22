@@ -8,6 +8,30 @@ To upgrade, change the exact version in `Cargo.toml` and run `cargo update --wor
 skip releases, apply the section of each listed release between your version and the new one,
 oldest first.
 
+## From 0.1.0-beta.4
+
+`path` refuses a parameter name that contains `:` or whitespace. Such names come from other
+routers' constraint syntax, such as `{id:[0-9]+}` or `{id:int}`, or from spaces inside the
+braces, as in `{ id }`. 0.1.0-beta.4 accepted them and used the whole text, such as
+`id:[0-9]+`, as the capture's name, so the route matched any value. Now `path` returns a
+`DefinitionError` when you build the route.
+
+Write the plain name, read the capture by that name, and move a constraint into
+[`filter`](./paths.md#refine-captures-with-filter):
+
+```diff
+-let user = path("/users/{id:[0-9]+}")?;
++let user = path("/users/{id}")?.filter(|captures| {
++    captures
++        .get("id")
++        .is_some_and(|id| id.bytes().all(|byte| byte.is_ascii_digit()))
++});
+```
+
+The compiler cannot find these patterns. Build your route table once, for example in a test, to
+see each error; its message names the capture. Other patterns are unchanged. See [syntax from
+other routers](./paths.md#syntax-from-other-routers).
+
 ## From 0.1.0-beta.3
 
 The raw query-string helpers are renamed, so they can no longer be confused with the new `query()`

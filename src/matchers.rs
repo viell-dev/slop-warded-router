@@ -124,13 +124,29 @@ impl Matcher for PathMatcher {
         Ok(Some(captures))
     }
 }
-/// Compile a matchit path pattern such as `/orders/{id}` or `/assets/{*rest}`.
+/// Match a path pattern such as `/orders/{id}` or `/assets/{*rest}`, capturing its parameters.
 ///
-/// Each route has its own pattern lookup, so static-path precedence cannot hide
-/// a later overlapping candidate. Captures retain their raw percent encoding.
-/// Doubled braces denote literals, including in a suffix after a parameter.
-/// At most 25 ordinary named parameters are supported; a terminal catch-all does
-/// not count toward that limit. Excess capacity returns a definition error.
+/// `{name}` captures one segment, or part of one, and a final `{*name}` captures the rest of
+/// the path. `{{` and `}}` are literal braces, also directly after a parameter. Captured values
+/// keep their raw percent encoding.
+///
+/// A capture name cannot contain `:` or whitespace. Captures take no type or pattern
+/// constraint, so constraint syntax from other routers, such as `{id:[0-9]+}`, is a definition
+/// error; check a captured value with [`Matcher::filter`] instead. Outside braces, `:` and `*`
+/// are literal text: `/articles/:slug` matches only that exact path.
+///
+/// Each route compiles its own pattern, so a static path in a later route never takes
+/// precedence over an earlier route; declaration order decides. At most 25 ordinary parameters
+/// are supported, and a final catch-all does not count toward that limit. A pattern beyond it
+/// returns a definition error.
+///
+/// ```
+/// use warded::matchers::path;
+///
+/// assert!(path("/users/{id}").is_ok());
+/// assert!(path("/users/{id:[0-9]+}").is_err());
+/// assert!(path("/users/{ id }").is_err());
+/// ```
 pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> {
     let pattern = pattern.into();
     if !pattern.starts_with('/') || pattern.contains(['?', '#']) {
@@ -142,6 +158,7 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
     // 26th ordinary parameter. Catch-alls are not normalized. Revisit this guard
     // when adopting an upstream version that returns an error or lifts the limit.
     // Check decoded capture names and unmatched closers on the declared pattern.
+    // Names also exclude ':' and whitespace, which matchit would accept.
     // The closer check began as containment for the escape-marker defect below;
     // the placeholder repair now avoids that defect, so it is defence in depth.
     // matchit remains responsible for validating the name and pattern grammar.
@@ -159,6 +176,15 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
         match (capture.as_mut(), character, escaped) {
             (Some((start, name)), '}', false) => {
                 let catch_all = name.starts_with('*');
+                let declared = name.strip_prefix('*').unwrap_or(name);
+                // Other routers' constraint syntax, such as `{id:[0-9]+}` or `{id:int}`,
+                // would otherwise become part of the name and match any value.
+                if declared.contains(':') || declared.chars().any(char::is_whitespace) {
+                    return Err(DefinitionError(format!(
+                        "capture name {declared:?} contains ':' or whitespace; captures take \
+                         no type or pattern constraint, so check the value with Matcher::filter",
+                    )));
+                }
                 if !catch_all {
                     ordinary_parameters += 1;
                     if ordinary_parameters > 25 {
@@ -167,7 +193,7 @@ pub fn path(pattern: impl Into<String>) -> Result<PathMatcher, DefinitionError> 
                         ));
                     }
                 }
-                let name = name.strip_prefix('*').unwrap_or(name).to_owned();
+                let name = declared.to_owned();
                 if !names.insert(name.clone()) {
                     return Err(DefinitionError(format!("duplicate capture name: {name}")));
                 }

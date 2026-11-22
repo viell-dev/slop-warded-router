@@ -19,6 +19,8 @@ A pattern is a path with parameters in braces:
 - `{*name}` is a catch-all that matches the non-empty rest of the path, including `/`. It must end
   the pattern.
 - `{{` and `}}` stand for literal `{` and `}`.
+- A name is the text between the braces. It cannot contain `:` or whitespace, because a
+  parameter takes no type or pattern; see [syntax from other routers](#syntax-from-other-routers).
 
 The selected route's captures are in `selection.captures`, and a `Router` also adds them to the
 request's extensions as `Captures`:
@@ -199,12 +201,69 @@ kind of value. The rules for `filter`:
 - A predicate can use a precompiled regular expression or any other bounded check. Keep it free of
   side effects: it runs for every request that reaches the route.
 
+## Syntax from other routers
+
+Routers write parameters in different ways, and Warded reads only its own braces. Outside braces,
+`:` and `*` are ordinary characters, so `/articles/:slug` is a literal path that matches only a
+request for `/articles/:slug`, and `/files/*rest` matches only `/files/*rest`. Write
+`/articles/{slug}` and `/files/{*rest}` instead.
+
+Inside braces, everything is the parameter's name. Warded has no constraint syntax, such as
+`{id:[0-9]+}` or `{id:int}`, so a name containing `:` or whitespace is a definition error rather
+than a parameter that would match any value. Write `{id}` and check the value with
+[`filter`](#refine-captures-with-filter):
+
+```rust
+use http::Request;
+use std::error::Error;
+use warded::{Head, Matcher, matchers::path};
+
+/// Whether the matcher accepts a request for this URI.
+fn accepts(matcher: &impl Matcher, uri: &str) -> Result<bool, Box<dyn Error>> {
+    let request = Request::builder().uri(uri).body(())?;
+    Ok(matcher.evaluate(&Head::from_request(&request))?.is_some())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    // `:slug` and `*rest` are literal text, not parameters.
+    let literal = path("/articles/:slug")?;
+    assert!(!accepts(&literal, "/articles/hello")?);
+    assert!(accepts(&literal, "/articles/:slug")?);
+    assert!(!accepts(&path("/files/*rest")?, "/files/css/site.css")?);
+
+    // Braces declare the parameters.
+    assert!(accepts(&path("/articles/{slug}")?, "/articles/hello")?);
+    assert!(accepts(&path("/files/{*rest}")?, "/files/css/site.css")?);
+
+    // A constraint or a space inside the braces is an error when the route is built.
+    let error = path("/users/{id:[0-9]+}").expect_err("a constraint is not part of a name");
+    assert!(error.to_string().contains("Matcher::filter"));
+    assert!(path("/users/{id:int}").is_err());
+    assert!(path("/users/{ id }").is_err());
+
+    // The constraint as a filter on the raw value.
+    let user = path("/users/{id}")?.filter(|captures| {
+        captures
+            .get("id")
+            .is_some_and(|id| id.bytes().all(|byte| byte.is_ascii_digit()))
+    });
+    assert!(accepts(&user, "/users/42")?);
+    assert!(!accepts(&user, "/users/alice")?);
+    Ok(())
+}
+```
+
+A parameter never matches an empty segment, so the filter needs no separate check for an empty
+value. Names can still use characters such as `-`, `_`, `.` and non-ASCII letters, as in
+`{user-id}` or `{é}`.
+
 ## Pattern rules and limits
 
 Patterns are checked when you call `path`, which returns a `DefinitionError` for:
 
 - a pattern that does not start with `/`, or that contains `?` or `#`;
 - an unclosed `{` or an unmatched `}`;
+- a parameter name containing `:` or whitespace, such as `{id:[0-9]+}` or `{ id }`;
 - two parameters with the same name, including a catch-all;
 - a catch-all that is not at the end of the pattern;
 - more than one parameter in a segment, such as `/{from}-{to}`;
@@ -219,6 +278,9 @@ fn main() {
         "/search?q={term}",
         "/users/{id",
         "/users/id}",
+        "/users/{id:[0-9]+}",
+        "/users/{ id }",
+        "/files/{*rest path}",
         "/users/{id}/{*id}",
         "/files/{*rest}/edit",
         "/{from}-{to}",

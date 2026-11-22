@@ -455,6 +455,79 @@ fn pattern_validation_respects_escaped_braces_and_catch_all_names() {
 }
 
 #[test]
+fn capture_names_with_constraint_syntax_or_whitespace_are_definition_errors() {
+    for (pattern, name) in [
+        ("/a/{id:[0-9]+}", "id:[0-9]+"),
+        ("/a/{id:int}", "id:int"),
+        ("/a/{:id}", ":id"),
+        ("/a/{ id }", " id "),
+        ("/a/{id }", "id "),
+        ("/a/{first name}", "first name"),
+        ("/a/{id\tx}", "id\tx"),
+        ("/a/{id\u{a0}}", "id\u{a0}"),
+        ("/a/{id\u{3000}}", "id\u{3000}"),
+        ("/files/{*rest path}", "rest path"),
+        ("/files/{*rest:.*}", "rest:.*"),
+        ("/files/{* rest}", " rest"),
+        ("/files/{ *rest}", " *rest"),
+        // An escaped closer is part of the name, and the escaped-suffix repair path is checked too.
+        ("/a/{id}}:x}", "id}:x"),
+        ("/{id:x}{{suffix}}", "id:x"),
+        ("/{ok}/{id:x}{{suffix}}", "id:x"),
+    ] {
+        let error = path(pattern).expect_err(pattern).to_string();
+        assert!(
+            error.starts_with(&format!("capture name {name:?} contains ':' or whitespace")),
+            "{pattern}: {error}"
+        );
+        assert!(error.contains("Matcher::filter"), "{pattern}: {error}");
+    }
+}
+
+#[test]
+fn capture_names_without_colons_or_whitespace_and_literal_colons_still_match() {
+    let request = |uri: &str| Request::builder().uri(uri).body(()).unwrap();
+    for (pattern, uri, name, value) in [
+        ("/users/{user-id}", "/users/42", "user-id", "42"),
+        ("/users/{user_id}", "/users/42", "user_id", "42"),
+        ("/users/{userId.v2}", "/users/42", "userId.v2", "42"),
+        ("/users/{é}", "/users/42", "é", "42"),
+        ("/users/{用户}", "/users/42", "用户", "42"),
+        ("/files/{*rest_path}", "/files/a/b", "rest_path", "a/b"),
+        // Escaped braces are literal text, so a colon or space inside them is not a name.
+        ("/{{id:x}}/{id}", "/{id:x}/42", "id", "42"),
+        // A colon outside braces is literal text, also beside a parameter.
+        (
+            "/articles/{slug}:edit",
+            "/articles/hello:edit",
+            "slug",
+            "hello",
+        ),
+    ] {
+        let matcher = path(pattern).unwrap_or_else(|error| panic!("{pattern}: {error}"));
+        let captures = matcher
+            .evaluate(&Head::from_request(&request(uri)))
+            .unwrap()
+            .unwrap_or_else(|| panic!("{pattern} missed {uri}"));
+        assert_eq!(
+            captures.iter().collect::<Vec<_>>(),
+            [(name, value)],
+            "{pattern}"
+        );
+    }
+    // A URI cannot hold a space, but an escaped literal may.
+    assert!(path("/{{a b}}/{id}").is_ok());
+
+    // Other routers' parameter syntax outside braces is literal text, not a parameter.
+    let slug = path("/articles/:slug").unwrap();
+    assert!(matches(&slug, &request("/articles/:slug")));
+    assert!(!matches(&slug, &request("/articles/hello")));
+    let rest = path("/files/*rest").unwrap();
+    assert!(matches(&rest, &request("/files/*rest")));
+    assert!(!matches(&rest, &request("/files/css/site.css")));
+}
+
+#[test]
 fn decoded_capture_names_agree_with_matchit_across_brace_and_catch_all_cases() {
     for first in ["id", "id}}", "a{{b", "a{b", "é"] {
         for second in ["id", "id}}", "a{{b", "a{b", "é"] {

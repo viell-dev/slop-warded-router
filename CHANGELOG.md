@@ -5,6 +5,17 @@
 Changes on [`main`](https://github.com/viell-dev/slop-warded-router/blob/main/CHANGELOG.md#unreleased)
 appear here before the next release.
 
+- **Breaking:** `path` returns a `DefinitionError` for a parameter name that contains `:` or
+  whitespace, such as `{id:[0-9]+}`, `{id:int}` or `{ id }`. Earlier versions accepted the whole
+  text as the capture's name, so another router's constraint syntax silently matched any value.
+  The message points at `Matcher::filter`. The
+  [upgrading guide](https://viell-dev.github.io/slop-warded-router/upgrading.html) shows the
+  change. [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
+- Document that `:name` and `*name` outside braces are literal path text, and add
+  troubleshooting entries for other routers' path syntax and for Axum's `Path` extractor, which
+  answers 500 `No paths parameters found for matched route` under a Warded route.
+  [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
+
 ## 0.1.0-beta.4
 
 Adds the documentation site that the
