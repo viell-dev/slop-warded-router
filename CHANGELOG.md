@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-Changes on `main` appear here before the next release.
+Changes on [`main`](https://github.com/viell-dev/slop-warded-router/blob/main/CHANGELOG.md#unreleased)
+appear here before the next release.
 
 ## 0.1.0-beta.4
 

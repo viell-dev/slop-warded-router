@@ -177,8 +177,8 @@ http = "1.5"
 ```
 
 Run `cargo build` to resolve it, and change `rev` followed by `cargo update --workspace` to move to
-another commit. The [changelog](./changelog.md) lists unreleased changes; this site describes the
-latest release.
+another commit. The [changelog on the default branch][unreleased] lists unreleased changes; this
+site describes the latest release.
 
 ## Next steps
 
@@ -189,3 +189,4 @@ latest release.
 
 [source tag]: https://github.com/viell-dev/slop-warded-router/tree/0.1.0-beta.4
 [API reference]: https://docs.rs/warded/0.1.0-beta.4/warded/
+[unreleased]: https://github.com/viell-dev/slop-warded-router/blob/main/CHANGELOG.md#unreleased

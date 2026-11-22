@@ -46,9 +46,10 @@ contradicted the documentation.
 - **The API reference** on [docs.rs](https://docs.rs/warded) exists for every published version;
   use its version menu to pick another one.
 - **The README** on [crates.io](https://crates.io/crates/warded) matches each published version.
-- **Unreleased changes** on the default branch are listed under _Unreleased_ in the
-  [changelog](./changelog.md). To try them, depend on a commit as [getting
-  started](./getting-started.md#try-the-repository-examples) shows.
+- **Unreleased changes** are listed under _Unreleased_ in the [changelog on the default
+  branch](https://github.com/viell-dev/slop-warded-router/blob/main/CHANGELOG.md#unreleased). This
+  site's [changelog](./changelog.md) ends at the release it describes. To try unreleased changes,
+  depend on a commit as [getting started](./getting-started.md#try-the-repository-examples) shows.
 
 ## Security fixes
 
