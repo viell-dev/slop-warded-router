@@ -5,6 +5,14 @@
 Changes on [`main`](https://github.com/viell-dev/slop-warded-router/blob/main/CHANGELOG.md#unreleased)
 appear here before the next release.
 
+## 0.1.0-beta.5
+
+Fixes from the [usability review of beta.4](https://github.com/viell-dev/slop-warded-router/issues/39),
+which checked the documentation site that the
+[hands-on report in #26](https://github.com/viell-dev/slop-warded-router/issues/26) asked for.
+It has one breaking change to path patterns, covered in the
+[upgrading guide](https://viell-dev.github.io/slop-warded-router/upgrading.html).
+
 - **Breaking:** `path` returns a `DefinitionError` for a parameter name that contains `:` or
   whitespace, such as `{id:[0-9]+}`, `{id:int}` or `{ id }`. Earlier versions accepted the whole
   text as the capture's name, so another router's constraint syntax silently matched any value.
@@ -28,7 +36,8 @@ appear here before the next release.
 - Link Troubleshooting and Scope and limits from the site's top navigation and home page, give
   each site page its own description for search results, and reword dense API reference
   summaries, such as those of `Offers`, `Negotiated` and `Router`, in plain words. The crate's
-  `homepage` is the documentation site. Library behavior is unchanged.
+  `homepage` is the documentation site. These documentation changes leave library behavior
+  unchanged.
   [#39](https://github.com/viell-dev/slop-warded-router/issues/39)
 
 ## 0.1.0-beta.4

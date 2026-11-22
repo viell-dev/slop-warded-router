@@ -6,7 +6,7 @@ first route whose conditions all hold is selected, so a route that fails on a he
 lets selection continue. Matching never reads the request body, and an optional Tower adapter
 dispatches to Axum handlers or any other Tower service.
 
-**Beta.** The latest release is [`0.1.0-beta.4` on crates.io][crate]. The [documentation
+**Beta.** The latest release is [`0.1.0-beta.5` on crates.io][crate]. The [documentation
 site][site] has guides for each task, and the [API reference] is on docs.rs.
 
 Agents write and maintain Warded. No person reviews the code. See [CONTRIBUTING.md] for
@@ -18,7 +18,7 @@ Warded requires Rust 1.99.1 or later. In your Cargo project, add the exact prere
 `http` types used in the example:
 
 ```sh
-cargo add warded@=0.1.0-beta.4 http@1.5
+cargo add warded@=0.1.0-beta.5 http@1.5
 ```
 
 This adds the following to `Cargo.toml`:
@@ -26,7 +26,7 @@ This adds the following to `Cargo.toml`:
 ```toml
 [dependencies]
 http = "1.5"
-warded = "=0.1.0-beta.4"
+warded = "=0.1.0-beta.5"
 ```
 
 The default features are `tower`, for dispatching to Tower services, and `negotiation`, for the
@@ -108,8 +108,8 @@ vulnerabilities privately as the [security policy] describes.
 
 Licensed under either of [LICENSE-MIT] or [LICENSE-APACHE], at your option.
 
-[crate]: https://crates.io/crates/warded/0.1.0-beta.4
-[API reference]: https://docs.rs/warded/0.1.0-beta.4/warded/
+[crate]: https://crates.io/crates/warded/0.1.0-beta.5
+[API reference]: https://docs.rs/warded/0.1.0-beta.5/warded/
 [site]: https://viell-dev.github.io/slop-warded-router/
 [getting started]: https://viell-dev.github.io/slop-warded-router/getting-started.html
 [how selection works]: https://viell-dev.github.io/slop-warded-router/selection.html
@@ -126,5 +126,5 @@ Licensed under either of [LICENSE-MIT] or [LICENSE-APACHE], at your option.
 [CONTRIBUTING.md]: https://github.com/viell-dev/slop-warded-router/blob/main/CONTRIBUTING.md
 [GitHub issues]: https://github.com/viell-dev/slop-warded-router/issues
 [security policy]: https://github.com/viell-dev/slop-warded-router/blob/main/SECURITY.md
-[LICENSE-MIT]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.4/LICENSE-MIT
-[LICENSE-APACHE]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.4/LICENSE-APACHE
+[LICENSE-MIT]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.5/LICENSE-MIT
+[LICENSE-APACHE]: https://github.com/viell-dev/slop-warded-router/blob/0.1.0-beta.5/LICENSE-APACHE

@@ -18,7 +18,7 @@ Warded needs Rust 1.99.1 or later. In your Cargo project, add the exact release 
 crate, whose request types the examples use:
 
 ```sh
-cargo add warded@=0.1.0-beta.4 http@1.5
+cargo add warded@=0.1.0-beta.5 http@1.5
 ```
 
 This adds the following to `Cargo.toml`:
@@ -26,7 +26,7 @@ This adds the following to `Cargo.toml`:
 ```toml
 [dependencies]
 http = "1.5"
-warded = "=0.1.0-beta.4"
+warded = "=0.1.0-beta.5"
 ```
 
 The `=` pins this exact prerelease. Betas can still change behavior between versions, so you choose
@@ -43,7 +43,7 @@ Matching and selection work without either. To choose features yourself, turn of
 
 ```toml
 [dependencies]
-warded = { version = "=0.1.0-beta.4", default-features = false, features = ["negotiation"] }
+warded = { version = "=0.1.0-beta.5", default-features = false, features = ["negotiation"] }
 ```
 
 ## A first route table
@@ -200,6 +200,6 @@ site describes the latest release.
 - [Tower and Axum](./tower.md): serving routes from a real HTTP server.
 - The [API reference] on docs.rs lists every type and function.
 
-[source tag]: https://github.com/viell-dev/slop-warded-router/tree/0.1.0-beta.4
-[API reference]: https://docs.rs/warded/0.1.0-beta.4/warded/
+[source tag]: https://github.com/viell-dev/slop-warded-router/tree/0.1.0-beta.5
+[API reference]: https://docs.rs/warded/0.1.0-beta.5/warded/
 [unreleased]: https://github.com/viell-dev/slop-warded-router/blob/main/CHANGELOG.md#unreleased
