@@ -26,19 +26,22 @@ claims are essential.
 - Follow Rust ecosystem conventions, the package lint configuration, and `cargo fmt`. Prefer
   narrowly scoped `#[expect(..., reason = "...")]` over blanket lint suppression.
 - Run the applicable tests, doctests, feature configurations, Clippy, and documentation build. Review
-  the complete diff after checks pass — judging readability, Rust idioms, structure, naming, and
-  tests alongside behavior — and record commands, environments, limitations, and finding
-  dispositions in the pull request. A deliberate departure from idiomatic practice (such as a
-  dependency constraint or a measured hot-path speedup) requires a code comment explaining the
-  constraint or measured difference and the condition for revisiting it. When a PR copies a weak
-  pattern from merged code, examples, or guidance, fix the precedent in separate linked PRs before
-  settling the original PR.
-- When a published security advisory affects a resolved dependency, confirm it covers the resolved
-  version and that the fixed release is genuine from the package's usual publisher. Apply the
-  smallest working fix — updating the dependency or using Cargo `[patch]` with the advisory and
-  removal condition recorded — ahead of routine update batching or any release-age gate, and decide
-  whether the published package diff warrants an independent review. Record the advisory, versions,
-  dependency path, and review decision in the pull request.
+  the complete diff after checks pass and record commands, environments, limitations, and finding
+  dispositions in the pull request.
+- Review how the code is written as well as whether it works: readable, idiomatic Rust, consistent
+  structure and naming, appropriate tests, and the conventions of the libraries in use, checked
+  against their current documentation. Prefer established practice with a clear benefit over churn.
+- A deliberate departure from better practice needs a constraint that rules that practice out, or a
+  measured and significant speedup. Explain it in a code comment at the site, with the constraint or
+  measured difference and any condition for revisiting it. Treat an unexplained departure as a
+  finding.
+- When a pull request follows a weak pattern in merged code, examples, templates, or guidance, the
+  precedent is the defect. Before settling the original, correct the code and the guidance that
+  taught it, as applicable, in separate pull requests. Then refactor the original to the corrected
+  pattern or replace it, and link these pull requests to each other.
+- When a published security advisory affects a resolved dependency, follow
+  [security advisories](./CONTRIBUTING.md#security-advisories) ahead of routine update batching and
+  any release-age gate.
 - Use regression checks that expose the behavior: complete-predicate fallthrough, capture rollback,
   raw/repeated input, no body reads, committed execution, and service readiness where affected.
 - Unexpected failures need triage against the baseline. Do not weaken checks or hide failures to
