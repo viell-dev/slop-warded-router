@@ -54,7 +54,8 @@ differences; it is not a benchmark or a required compatibility claim.
 The server example additionally checks a real localhost HTTP/1.1 listener, host error conversion,
 HEAD/405 behavior, known cleartext context, graceful shutdown, and Vary preservation. It does not
 establish TLS/proxy trust, browser workflows, HTTP/2, or HTTP/3. The owner's hands-on pass is
-required before the first RC. Independent agent usability reviews cover later candidates.
+recorded in [#26](https://github.com/viell-dev/slop-warded-router/issues/26). Independent agent
+usability reviews cover later candidates.
 
 The [upstream-test comparison](./upstream-tests.md) records recurring early-release research and
 the provenance and disposition of additional cases in `upstream_cases.rs`. These cover empty and
@@ -120,7 +121,7 @@ The [Pages resolution tests](../.github/scripts/pages-test.sh) run in the Linux 
 fake `gh` and `curl` commands. They cover SemVer precedence including prerelease numbers above 9,
 yanked and missing versions, index failures, tag format, correction-branch ancestry, files and
 renames outside `docs/`, and Release runs that did not publish. The Pages workflow itself runs only
-on `main` after a release or by dispatch, so its first deployment is part of release
+on `main` after a release or by dispatch, so its deployment is part of release
 verification.
 
 ## Clean consumer
@@ -149,14 +150,16 @@ restore and run the pinned candidate. Use `scripts/check.sh` for reconstructed p
 `review_regressions.rs` retains regressions for media specificity and parameter ordering, lookup
 priority and wildcards, quoted/wildcard media cases, concrete language definitions, language
 exclusions, malformed private-use and valid grandfathered tags, field-byte/member/parameter limits
-including repeated-field separators, duplicate path captures, and 50 escaped-name/catch-all
-combinations compared with matchit's decoded names.
+including repeated-field separators, and duplicate path captures. `matching.rs` compares 50
+escaped-name/catch-all combinations with matchit's decoded names.
 
 The suite also checks borrowed configuration ownership, cross-thread selection, constant-cost router
 cloning by service clone counts, copy-on-write isolation, boxed errors with Axum bodies, non-default
 response types in request-returning mode, selected readiness failures, cancellation, outer
 concurrency admission, shared-offer cache isolation across sets/heads/limits/policies, and complete
-`Vary` token matching in listener checks.
+`Vary` token matching in listener checks. The body-frame test also requires its poll counter to
+advance when the returned body is consumed, and the readiness fixture rejects a call on a clone that
+was not polled ready.
 
 Run `cargo bench --bench selection --locked` for the focused cost probe: compiled path tables with
 16/128/1024 routes, independent versus shared media negotiation with 16/128 offers, small and

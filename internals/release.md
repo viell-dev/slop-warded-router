@@ -42,12 +42,10 @@ routing semantics, feature names and Rust minimum 1.99.1. Intentional breaking c
 - **Beta** starts when the agreed feature scope and gates below are met, then focuses on fixes and
   polish. A material change to the first-release goal needs an owner decision.
 - **RC** identifies a concrete candidate intended to become stable. The owner must explicitly
-  approve the first RC after review and the hands-on session in
-  [#26](https://github.com/viell-dev/slop-warded-router/issues/26), which used `0.1.0-beta.3`.
-  `0.1.0-beta.4` added the documentation site requested in
-  [#29](https://github.com/viell-dev/slop-warded-router/issues/29), and `0.1.0-beta.5` resolved the
-  findings from an independent agent usability review; RC approval now waits on the owner in
-  [#25](https://github.com/viell-dev/slop-warded-router/issues/25).
+  approve the first RC after review, in
+  [#25](https://github.com/viell-dev/slop-warded-router/issues/25). The owner's hands-on session
+  with `0.1.0-beta.3` is recorded in
+  [#26](https://github.com/viell-dev/slop-warded-router/issues/26).
 - **Stable** requires separate explicit owner approval after review. The hands-on session is the
   human use the stable gate requires while RC and stable stay representative of the tested build.
   After it, independent agent usability reviews cover later candidates and substantial workflow
@@ -116,9 +114,8 @@ release a new commit, so package the merged `main` commit rather than the review
 ## Trusted publishing
 
 `warded` publishes through the [release workflow](../.github/workflows/release.yml) using crates.io
-[Trusted Publishing](https://crates.io/docs/trusted-publishing) (the one-time initial crate upload
-ran for `0.1.0-beta.3`, and the crate's trusted-publishing-only setting has refused API token
-uploads since `0.1.0-beta.4`).
+[Trusted Publishing](https://crates.io/docs/trusted-publishing). The crate's trusted-publishing-only
+setting makes crates.io refuse API token uploads.
 
 The GitHub environment `crates-io` allows only tags matching `[0-9]*.[0-9]*.[0-9]*` and no branch
 deployments; no registry token secret is configured. The crates.io Trusted Publishing settings
@@ -130,9 +127,26 @@ Pushing a version tag is the release decision: any such tag runs its own commit'
 environment, and the gate then requires a verified `main` commit. Keep tag creation with trusted
 maintainers.
 
-After exact-commit verification passes on `main`, create and push the annotated tag with
-`git tag -a "$version" -m "Warded $version" "$release_commit"` and
-`git push origin "refs/tags/$version"`. The workflow checks that the tag equals the Cargo version
+Use Bash with GitHub CLI access and `jq`, in a clean checkout. After the exact-commit verification
+above passes, set `release_commit` to the verified full SHA on `main` and `version` to its Cargo
+version. Create the annotated tag locally and run the release gate before pushing it, because a
+pushed version tag cannot move:
+
+```sh
+git fetch origin refs/heads/main:refs/remotes/origin/main
+git switch --detach "$release_commit"
+git tag -a "$version" -m "Warded $version" "$release_commit"
+
+gate_output="$(mktemp)"
+GITHUB_REF="refs/tags/$version" GITHUB_SHA="$release_commit" \
+  GITHUB_REPOSITORY=viell-dev/slop-warded-router GITHUB_SERVER_URL=https://github.com \
+  GITHUB_OUTPUT="$gate_output" bash .github/scripts/release-verify.sh
+rm -- "$gate_output"
+```
+
+Continue only after the gate succeeds: `git push origin "refs/tags/$version"`.
+
+The workflow checks that the tag equals the Cargo version
 and that its commit is reachable from `main`. Only the environment's publish job can request a
 registry token. It authenticates after a matching existing publication too, so a successful run also
 verifies the trusted-publisher configuration. An existing version only succeeds when its index
@@ -194,7 +208,7 @@ Configure these before the first deployment. Each is reversible; none affects re
 A successful Release run that published its version starts the workflow through `workflow_run`.
 It builds the released tag and deploys it. To deploy by hand, for example after fixing a failed
 run, dispatch **Pages** on `main` with `tag` set to the newest release's version and `corrections`
-left off. The first deployment follows the first release whose tag contains `docs/`.
+left off.
 
 After the run, open the site and its `version.json`, and check the version, tag commit and built
 commit against the release record.
@@ -233,7 +247,26 @@ Later versions publish through the workflow. If it cannot publish a verified ver
 because the trusted-publisher configuration fails, fix the cause and rerun it. A manual token
 upload of such a version needs the owner's recorded go-ahead, the same exact-commit checks and
 post-publication verification, and the trusted-publishing-only setting turned off for the upload
-and on again afterwards. Keep tokens out of the repository and Actions secrets.
+and on again afterwards. Package on Linux as above and check the index first:
+
+```sh
+cargo package --locked --target-dir target
+checksum="$(sha256sum "target/package/warded-$version.crate" | cut -d ' ' -f 1)"
+index_output="$(mktemp)"
+GITHUB_OUTPUT="$index_output" bash .github/scripts/release-index.sh check "$version" "$checksum"
+cat "$index_output"
+rm -- "$index_output"
+```
+
+Only `published=false` permits the upload; a checksum mismatch blocks it. Then upload the verified
+bytes and confirm them:
+
+```sh
+cargo publish --locked --no-verify --registry crates-io --target-dir target
+bash .github/scripts/release-index.sh confirm "$version" "$checksum"
+```
+
+Keep tokens out of the repository and Actions secrets.
 
 If a published build must be withdrawn, the owner yanks it on crates.io or with
 `cargo yank --version "$version" warded` from a session whose token has the yank scope; the
