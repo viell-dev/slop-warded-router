@@ -5,6 +5,10 @@
 Changes on [`main`](https://github.com/viell-dev/slop-warded-router/blob/main/CHANGELOG.md#unreleased)
 appear here before the next release.
 
+- Document that clients percent-encode spaces, braces and non-ASCII characters in a path before
+  sending it, so a pattern's literal text has to be written as they send it
+  ([#44](https://github.com/viell-dev/slop-warded-router/issues/44)).
+
 ## 0.1.0-beta.5
 
 Fixes from the [usability review of beta.4](https://github.com/viell-dev/slop-warded-router/issues/39),

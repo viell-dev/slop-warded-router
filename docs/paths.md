@@ -88,6 +88,13 @@ Warded matches the path the HTTP stack delivered, byte for byte:
 - Dot segments and repeated slashes are not removed: `/users/../admin` is not `/admin`.
 - Nothing redirects. A request for `/orders/` does not reach `/orders`; declare both if you want
   both to work.
+- Write a pattern's literal text as clients send it. Browsers' `fetch`, Node's `fetch` and most
+  HTTP libraries percent-encode spaces, `"`, `<`, `>`, `` ` ``, `{`, `}` and every non-ASCII
+  character in a path before sending it, as the [URL
+  Standard](https://url.spec.whatwg.org/#path-percent-encode-set) says. For them,
+  `exact_path("/caf%C3%A9")` matches where `exact_path("/café")` does not, and `/templates/{name}`
+  arrives as `/templates/%7Bname%7D`, which `path("/templates/{{name}}")` does not match. The
+  doubled braces match only clients that send the braces as they are.
 
 ```rust
 use http::Request;
