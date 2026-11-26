@@ -90,6 +90,16 @@ Adapt the comparison to your deployment: a reverse proxy may rewrite the host, a
 applications compare the port too. A raw host condition, like a raw path, is not an access control
 by itself.
 
+This condition relies on the server to refuse a malformed host. `Authority` accepts more than a
+host and a port: user information (`user@api.example.com`), any text after the colon
+(`api.example.com:abc`) and brackets around anything (`[bogus]`), and `host()` returns the host
+part of each, so the route above takes `Host: user@api.example.com`. RFC 9112 section 3.2 asks a
+server to answer such requests, and HTTP/1.1 requests without exactly one `Host`, with a 400. Hyper
+leaves that check to the application, so under `axum::serve` these requests reach the routes.
+Where the server does not check, refuse them before routing, for example in a middleware, or
+compare the whole `authority.as_str()` with the forms you accept, such as the name alone or with
+digits after a colon.
+
 `match_fn` needs a closure that is `Clone`. It produces no captures and cannot fail. Its result is
 `Send` and `Sync` when the closure is, so it works in a `Router`.
 
