@@ -8,6 +8,9 @@ appear here before the next release.
 - Document that clients percent-encode spaces, braces and non-ASCII characters in a path before
   sending it, so a pattern's literal text has to be written as they send it
   ([#44](https://github.com/viell-dev/slop-warded-router/issues/44)).
+- Document that the custom-matcher guide's host condition relies on the server to refuse a
+  malformed or missing `Host`, which Hyper under `axum::serve` does not
+  ([#48](https://github.com/viell-dev/slop-warded-router/issues/48)).
 
 ## 0.1.0-beta.5
 
