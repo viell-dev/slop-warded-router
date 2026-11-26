@@ -83,8 +83,9 @@ Common causes, roughly in order of frequency:
 - **An earlier route matches first.** Order is the only priority; a broad route declared early,
   such as a pathless one, hides later routes. Move specific routes up.
 - **The path is not exactly the pattern.** A trailing slash, a different case or a percent escape
-  makes a different path. Warded does not normalize or redirect. See [raw
-  paths](./paths.md#raw-paths).
+  makes a different path. Clients percent-encode spaces, braces and non-ASCII characters before
+  sending them, so write those parts of a pattern encoded. Warded does not normalize or redirect.
+  See [raw paths](./paths.md#raw-paths).
 - **The pattern uses another router's syntax.** See [path syntax from other
   routers](#path-syntax-from-other-routers) below.
 - **HEAD with a `get()` route.** `get()` matches only GET; use `get().or(head())`.
